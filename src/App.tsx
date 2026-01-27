@@ -3,7 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BottomNav } from "@/components/BottomNav";
 import Index from "./pages/Index";
+import LoveNotes from "./pages/LoveNotes";
+import Events from "./pages/Events";
+import Surprises from "./pages/Surprises";
+import Memories from "./pages/Memories";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -14,11 +19,17 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <div className="max-w-md mx-auto min-h-screen bg-background relative">
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/love-notes" element={<LoveNotes />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/surprises" element={<Surprises />} />
+            <Route path="/memories" element={<Memories />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <BottomNav />
+        </div>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
