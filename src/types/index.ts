@@ -30,3 +30,13 @@ export interface Memory {
   caption?: string;
   date: Date;
 }
+
+export interface BucketListItem {
+  id: string;
+  title: string;
+  description?: string;
+  isCompleted: boolean;
+  completedAt?: Date;
+  createdAt: Date;
+  emoji?: string;
+}
