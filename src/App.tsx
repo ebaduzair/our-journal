@@ -10,6 +10,7 @@ import Events from "./pages/Events";
 import Surprises from "./pages/Surprises";
 import Memories from "./pages/Memories";
 import BucketList from "./pages/BucketList";
+import ReasonsILoveYou from "./pages/ReasonsILoveYou";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/love-notes" element={<LoveNotes />} />
+            <Route path="/reasons" element={<ReasonsILoveYou />} />
             <Route path="/events" element={<Events />} />
             <Route path="/surprises" element={<Surprises />} />
             <Route path="/memories" element={<Memories />} />

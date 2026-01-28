@@ -40,3 +40,11 @@ export interface BucketListItem {
   createdAt: Date;
   emoji?: string;
 }
+
+export interface LoveReason {
+  id: string;
+  content: string;
+  author: 'me' | 'partner';
+  createdAt: Date;
+  hearts: number;
+}

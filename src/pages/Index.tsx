@@ -3,7 +3,7 @@ import { Heart, Calendar, Gift, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FloatingHearts } from '@/components/HeartAnimation';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { LoveNote, SpecialEvent } from '@/types';
+import type { LoveNote, SpecialEvent, LoveReason } from '@/types';
 import { differenceInDays, format } from 'date-fns';
 
 const lovePrompts = [
@@ -17,6 +17,7 @@ const lovePrompts = [
 
 const Index = () => {
   const [notes] = useLocalStorage<LoveNote[]>('love-notes', []);
+  const [reasons] = useLocalStorage<LoveReason[]>('love-reasons', []);
   const [events] = useLocalStorage<SpecialEvent[]>('special-events', [
     {
       id: '1',
@@ -28,6 +29,7 @@ const Index = () => {
   ]);
 
   const randomPrompt = lovePrompts[Math.floor(Math.random() * lovePrompts.length)];
+  const randomReason = reasons.length > 0 ? reasons[Math.floor(Math.random() * reasons.length)] : null;
   
   const upcomingEvent = events
     .filter(e => differenceInDays(new Date(e.date), new Date()) >= 0)
@@ -104,21 +106,52 @@ const Index = () => {
           </Link>
         </motion.div>
 
+        {/* Today's Love Reminder */}
+        {randomReason && (
+          <motion.div variants={item}>
+            <Link to="/reasons">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-light to-gold-light shadow-card border border-rose-light/50 relative overflow-hidden group">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">💝</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Today's Love Reminder
+                  </span>
+                </div>
+                <p className="font-romantic text-base text-foreground leading-relaxed">
+                  "{randomReason.content}"
+                </p>
+                <div className="mt-2 flex items-center text-primary text-xs font-medium">
+                  <span>See all {reasons.length} reasons</span>
+                  <Heart className="w-3 h-3 ml-1 group-hover:animate-heart-beat" />
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        )}
+
         {/* Quick Stats */}
-        <motion.div variants={item} className="grid grid-cols-2 gap-3">
+        <motion.div variants={item} className="grid grid-cols-3 gap-3">
           <Link to="/love-notes" className="block">
-            <div className="p-4 rounded-2xl bg-rose-light text-center group hover:shadow-soft transition-shadow">
-              <Heart className="w-6 h-6 mx-auto mb-2 text-primary group-hover:animate-heart-beat" />
-              <span className="text-2xl font-bold text-foreground">{notes.length}</span>
-              <p className="text-xs text-muted-foreground mt-1">Love Notes</p>
+            <div className="p-3 rounded-2xl bg-rose-light text-center group hover:shadow-soft transition-shadow">
+              <Heart className="w-5 h-5 mx-auto mb-1 text-primary group-hover:animate-heart-beat" />
+              <span className="text-xl font-bold text-foreground">{notes.length}</span>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Notes</p>
+            </div>
+          </Link>
+          
+          <Link to="/reasons" className="block">
+            <div className="p-3 rounded-2xl bg-coral/10 text-center group hover:shadow-soft transition-shadow">
+              <span className="text-lg block mb-1">💝</span>
+              <span className="text-xl font-bold text-foreground">{reasons.length}</span>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Reasons</p>
             </div>
           </Link>
           
           <Link to="/events" className="block">
-            <div className="p-4 rounded-2xl bg-gold-light text-center group hover:shadow-soft transition-shadow">
-              <Calendar className="w-6 h-6 mx-auto mb-2 text-gold" />
-              <span className="text-2xl font-bold text-foreground">{events.length}</span>
-              <p className="text-xs text-muted-foreground mt-1">Special Events</p>
+            <div className="p-3 rounded-2xl bg-gold-light text-center group hover:shadow-soft transition-shadow">
+              <Calendar className="w-5 h-5 mx-auto mb-1 text-gold" />
+              <span className="text-xl font-bold text-foreground">{events.length}</span>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Events</p>
             </div>
           </Link>
         </motion.div>
