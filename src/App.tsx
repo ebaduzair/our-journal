@@ -9,6 +9,7 @@ import LoveNotes from "./pages/LoveNotes";
 import Events from "./pages/Events";
 import Surprises from "./pages/Surprises";
 import Memories from "./pages/Memories";
+import BucketList from "./pages/BucketList";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/events" element={<Events />} />
             <Route path="/surprises" element={<Surprises />} />
             <Route path="/memories" element={<Memories />} />
+            <Route path="/bucket-list" element={<BucketList />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />
