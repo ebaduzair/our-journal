@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { EventCard } from '@/components/EventCard';
+import { TimelineView } from '@/components/TimelineView';
 import { AddButton } from '@/components/AddButton';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { SpecialEvent } from '@/types';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, List, GitBranch } from 'lucide-react';
 
 const eventTypes = [
   { type: 'anniversary' as const, label: 'Anniversary', emoji: '💍' },
@@ -34,6 +35,7 @@ const Events = () => {
     },
   ]);
   const [isAdding, setIsAdding] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [newEvent, setNewEvent] = useState({
     title: '',
     date: '',
@@ -71,34 +73,66 @@ const Events = () => {
         emoji="📅"
       />
 
-      <div className="px-4 space-y-4">
-        <AnimatePresence>
-          {sortedEvents.map((event, index) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <EventCard event={event} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {events.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
+      {/* View Toggle */}
+      <div className="px-4 mb-4">
+        <div className="flex gap-2 p-1 bg-muted rounded-xl">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'list'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground'
+            }`}
           >
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-gold-light" />
-            <p className="text-muted-foreground">
-              Add your first special event! 📅
-            </p>
-          </motion.div>
-        )}
+            <List className="w-4 h-4" />
+            List
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'timeline'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" />
+            Timeline
+          </button>
+        </div>
       </div>
+
+      {viewMode === 'list' ? (
+        <div className="px-4 space-y-4">
+          <AnimatePresence>
+            {sortedEvents.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <EventCard event={event} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {events.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">
+                Add your first special event! 📅
+              </p>
+            </motion.div>
+          )}
+        </div>
+      ) : (
+        <TimelineView events={events} />
+      )}
 
       <AddButton onClick={() => setIsAdding(true)} label="Add event" />
 
