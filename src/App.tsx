@@ -11,6 +11,7 @@ import Surprises from "./pages/Surprises";
 import Memories from "./pages/Memories";
 import BucketList from "./pages/BucketList";
 import ReasonsILoveYou from "./pages/ReasonsILoveYou";
+import Challenges from "./pages/Challenges";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/surprises" element={<Surprises />} />
             <Route path="/memories" element={<Memories />} />
             <Route path="/bucket-list" element={<BucketList />} />
+            <Route path="/challenges" element={<Challenges />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

@@ -48,3 +48,24 @@ export interface LoveReason {
   createdAt: Date;
   hearts: number;
 }
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  category: 'communication' | 'adventure' | 'romance' | 'fun';
+  emoji: string;
+}
+
+export interface CompletedChallenge {
+  challengeId: string;
+  completedAt: Date;
+  notes?: string;
+  rating?: number;
+}
+
+export interface ChallengeStreak {
+  currentStreak: number;
+  longestStreak: number;
+  lastCompletedWeek: string; // ISO week string like "2025-W05"
+}
