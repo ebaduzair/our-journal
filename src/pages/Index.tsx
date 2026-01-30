@@ -203,17 +203,17 @@ const Index = () => {
               </motion.div>
             </Link>
             
-            <Link to="/memories">
+            <Link to="/events">
               <motion.div 
                 whileTap={{ scale: 0.98 }}
                 className="p-4 rounded-2xl bg-card shadow-card flex items-center gap-3 group"
               >
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xl">📸</span>
+                <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-gold" />
                 </div>
                 <div>
-                  <h4 className="font-medium text-foreground text-sm">Memories</h4>
-                  <p className="text-xs text-muted-foreground">Our photo moments</p>
+                  <h4 className="font-medium text-foreground text-sm">Events</h4>
+                  <p className="text-xs text-muted-foreground">Special dates</p>
                 </div>
               </motion.div>
             </Link>

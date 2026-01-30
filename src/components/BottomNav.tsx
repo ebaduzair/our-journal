@@ -1,4 +1,4 @@
-import { Heart, Gift, Camera, Home, Flame } from 'lucide-react';
+import { Heart, ListChecks, Camera, Home, Flame } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -6,7 +6,7 @@ const navItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Heart, label: 'Love', path: '/love-notes' },
   { icon: Flame, label: 'Challenges', path: '/challenges' },
-  { icon: Gift, label: 'Surprises', path: '/surprises' },
+  { icon: ListChecks, label: 'Bucket', path: '/bucket-list' },
   { icon: Camera, label: 'Memories', path: '/memories' },
 ];
 
