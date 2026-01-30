@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
-import { Heart, Calendar, Gift, Sparkles } from 'lucide-react';
+import { Heart, Calendar, Gift, Sparkles, BarChart3, MessageCircleHeart, ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FloatingHearts } from '@/components/HeartAnimation';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { LoveNote, SpecialEvent, LoveReason } from '@/types';
-import { differenceInDays, format } from 'date-fns';
+import type { LoveNote, SpecialEvent, LoveReason, CheckInEntry, LoveLanguageResult } from '@/types';
+import { differenceInDays, format, getISOWeek, getYear } from 'date-fns';
+import { loveLanguageInfo } from '@/data/loveLanguageQuiz';
 
 const lovePrompts = [
   "What made you smile about them today?",
@@ -18,6 +19,8 @@ const lovePrompts = [
 const Index = () => {
   const [notes] = useLocalStorage<LoveNote[]>('love-notes', []);
   const [reasons] = useLocalStorage<LoveReason[]>('love-reasons', []);
+  const [checkIns] = useLocalStorage<CheckInEntry[]>('check-ins', []);
+  const [loveLanguageResults] = useLocalStorage<LoveLanguageResult[]>('love-language-results', []);
   const [events] = useLocalStorage<SpecialEvent[]>('special-events', [
     {
       id: '1',
@@ -34,6 +37,14 @@ const Index = () => {
   const upcomingEvent = events
     .filter(e => differenceInDays(new Date(e.date), new Date()) >= 0)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+
+  // Check if weekly check-in is needed
+  const currentWeek = `${getYear(new Date())}-W${String(getISOWeek(new Date())).padStart(2, '0')}`;
+  const needsCheckIn = !checkIns.some(c => c.weekString === currentWeek);
+
+  // Get love language results
+  const myLanguage = loveLanguageResults.find(r => r.person === 'me');
+  const partnerLanguage = loveLanguageResults.find(r => r.person === 'partner');
 
   const container = {
     hidden: { opacity: 0 },
@@ -185,6 +196,24 @@ const Index = () => {
           </motion.div>
         )}
 
+        {/* Weekly Check-in Reminder */}
+        {needsCheckIn && (
+          <motion.div variants={item}>
+            <Link to="/check-ins">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-coral/10 border border-primary/20 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-foreground text-sm">Weekly Check-in Due</h4>
+                  <p className="text-xs text-muted-foreground">Take 2 minutes to reflect together</p>
+                </div>
+                <Heart className="w-4 h-4 text-primary" />
+              </div>
+            </Link>
+          </motion.div>
+        )}
+
         {/* Quick Actions */}
         <motion.div variants={item}>
           <div className="grid grid-cols-2 gap-3">
@@ -203,22 +232,93 @@ const Index = () => {
               </motion.div>
             </Link>
             
-            <Link to="/events">
+            <Link to="/stats">
               <motion.div 
                 whileTap={{ scale: 0.98 }}
                 className="p-4 rounded-2xl bg-card shadow-card flex items-center gap-3 group"
               >
-                <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-gold" />
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h4 className="font-medium text-foreground text-sm">Events</h4>
-                  <p className="text-xs text-muted-foreground">Special dates</p>
+                  <h4 className="font-medium text-foreground text-sm">Stats</h4>
+                  <p className="text-xs text-muted-foreground">Your love journey</p>
                 </div>
               </motion.div>
             </Link>
           </div>
         </motion.div>
+
+        {/* Discover Section */}
+        <motion.div variants={item}>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">Discover</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Link to="/love-quiz">
+              <motion.div 
+                whileTap={{ scale: 0.98 }}
+                className="p-4 rounded-2xl bg-card shadow-card flex items-center gap-3 group"
+              >
+                <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center">
+                  <MessageCircleHeart className="w-5 h-5 text-gold" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-foreground text-sm">Love Quiz</h4>
+                  <p className="text-xs text-muted-foreground">Discover languages</p>
+                </div>
+              </motion.div>
+            </Link>
+            
+            <Link to="/check-ins">
+              <motion.div 
+                whileTap={{ scale: 0.98 }}
+                className="p-4 rounded-2xl bg-card shadow-card flex items-center gap-3 group"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-foreground text-sm">Check-ins</h4>
+                  <p className="text-xs text-muted-foreground">Weekly reflection</p>
+                </div>
+              </motion.div>
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Love Language Compatibility */}
+        {(myLanguage || partnerLanguage) && (
+          <motion.div variants={item}>
+            <Link to="/love-quiz">
+              <div className="p-4 rounded-2xl bg-card shadow-card border border-gold/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageCircleHeart className="w-4 h-4 text-gold" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Love Languages
+                  </span>
+                </div>
+                <div className="flex justify-around">
+                  {myLanguage && (
+                    <div className="text-center">
+                      <span className="text-2xl block">{loveLanguageInfo[myLanguage.primaryLanguage].emoji}</span>
+                      <p className="text-xs text-muted-foreground mt-1">Me</p>
+                    </div>
+                  )}
+                  {myLanguage && partnerLanguage && (
+                    <div className="flex items-center">
+                      <Heart className="w-4 h-4 text-primary" />
+                    </div>
+                  )}
+                  {partnerLanguage && (
+                    <div className="text-center">
+                      <span className="text-2xl block">{loveLanguageInfo[partnerLanguage.primaryLanguage].emoji}</span>
+                      <p className="text-xs text-muted-foreground mt-1">Partner</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
