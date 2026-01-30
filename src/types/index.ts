@@ -69,3 +69,37 @@ export interface ChallengeStreak {
   longestStreak: number;
   lastCompletedWeek: string; // ISO week string like "2025-W05"
 }
+
+// Weekly Check-ins
+export interface CheckInEntry {
+  id: string;
+  weekString: string; // ISO week like "2025-W05"
+  createdAt: Date;
+  responses: {
+    connectionRating: number; // 1-5
+    partnerHighlight: string;
+    unresolvedIssues: string;
+    gratitude: string;
+    nextWeekPlan: string;
+  };
+  overallMood: number; // 1-5
+}
+
+// Gratitude Entries
+export interface GratitudeEntry {
+  id: string;
+  content: string;
+  mood: string; // emoji
+  createdAt: Date;
+  author: 'me' | 'partner';
+}
+
+// Love Language Quiz
+export type LoveLanguage = 'words' | 'acts' | 'gifts' | 'time' | 'touch';
+
+export interface LoveLanguageResult {
+  person: 'me' | 'partner';
+  scores: Record<LoveLanguage, number>;
+  primaryLanguage: LoveLanguage;
+  completedAt: Date;
+}

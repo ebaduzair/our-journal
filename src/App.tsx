@@ -12,6 +12,9 @@ import Memories from "./pages/Memories";
 import BucketList from "./pages/BucketList";
 import ReasonsILoveYou from "./pages/ReasonsILoveYou";
 import Challenges from "./pages/Challenges";
+import CheckIns from "./pages/CheckIns";
+import LoveLanguageQuiz from "./pages/LoveLanguageQuiz";
+import Stats from "./pages/Stats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +35,9 @@ const App = () => (
             <Route path="/memories" element={<Memories />} />
             <Route path="/bucket-list" element={<BucketList />} />
             <Route path="/challenges" element={<Challenges />} />
+            <Route path="/check-ins" element={<CheckIns />} />
+            <Route path="/love-quiz" element={<LoveLanguageQuiz />} />
+            <Route path="/stats" element={<Stats />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />
