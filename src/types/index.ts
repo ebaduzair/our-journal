@@ -103,3 +103,41 @@ export interface LoveLanguageResult {
   primaryLanguage: LoveLanguage;
   completedAt: Date;
 }
+
+// Mindful Moments - Overthinking Support
+export interface WorryEntry {
+  id: string;
+  worry: string;
+  reframe: string;
+  createdAt: Date;
+  author: 'me' | 'partner';
+  isResolved: boolean;
+}
+
+export interface ReassuranceCard {
+  id: string;
+  message: string;
+  author: 'me' | 'partner';
+  createdAt: Date;
+}
+
+export interface RealityCheckAnswer {
+  id: string;
+  worry: string;
+  answers: {
+    evidence: string;
+    likelihood: number; // 1-5
+    worstCase: string;
+    copingPlan: string;
+  };
+  createdAt: Date;
+  author: 'me' | 'partner';
+}
+
+export interface CalmSession {
+  id: string;
+  type: 'breathing' | 'grounding' | 'affirmation';
+  completedAt: Date;
+  durationSeconds: number;
+  completedTogether: boolean;
+}

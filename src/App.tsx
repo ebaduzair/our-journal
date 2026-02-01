@@ -15,6 +15,7 @@ import Challenges from "./pages/Challenges";
 import CheckIns from "./pages/CheckIns";
 import LoveLanguageQuiz from "./pages/LoveLanguageQuiz";
 import Stats from "./pages/Stats";
+import MindfulMoments from "./pages/MindfulMoments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/check-ins" element={<CheckIns />} />
             <Route path="/love-quiz" element={<LoveLanguageQuiz />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/mindful" element={<MindfulMoments />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Heart, Calendar, Gift, Sparkles, BarChart3, MessageCircleHeart, ClipboardCheck } from 'lucide-react';
+import { Heart, Calendar, Gift, Sparkles, BarChart3, MessageCircleHeart, ClipboardCheck, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FloatingHearts } from '@/components/HeartAnimation';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -283,6 +283,22 @@ const Index = () => {
               </motion.div>
             </Link>
           </div>
+        </motion.div>
+
+        {/* Mindful Moments Card */}
+        <motion.div variants={item}>
+          <Link to="/mindful">
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/20 border border-primary/20 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Brain className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground">Mindful Moments</h4>
+                <p className="text-xs text-muted-foreground">Calm overthinking together 🧘</p>
+              </div>
+              <Heart className="w-4 h-4 text-primary" />
+            </div>
+          </Link>
         </motion.div>
 
         {/* Love Language Compatibility */}
