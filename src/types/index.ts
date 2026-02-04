@@ -24,12 +24,7 @@ export interface Surprise {
   createdBy: 'me' | 'partner';
 }
 
-export interface Memory {
-  id: string;
-  imageUrl: string;
-  caption?: string;
-  date: Date;
-}
+
 
 export interface BucketListItem {
   id: string;
@@ -74,6 +69,7 @@ export interface ChallengeStreak {
 export interface CheckInEntry {
   id: string;
   weekString: string; // ISO week like "2025-W05"
+  week_string?: string; // DB column name
   createdAt: Date;
   responses: {
     connectionRating: number; // 1-5
@@ -98,7 +94,9 @@ export interface GratitudeEntry {
 export type LoveLanguage = 'words' | 'acts' | 'gifts' | 'time' | 'touch';
 
 export interface LoveLanguageResult {
+  id: string;
   person: 'me' | 'partner';
+  user_id?: string; // DB column name
   scores: Record<LoveLanguage, number>;
   primaryLanguage: LoveLanguage;
   completedAt: Date;
@@ -140,4 +138,19 @@ export interface CalmSession {
   completedAt: Date;
   durationSeconds: number;
   completedTogether: boolean;
+}
+
+// Safe Space - Emotional Support
+export type SafeSpaceMode = 'just_listen' | 'need_support' | 'private';
+export type FeelingCategory = 'hurt' | 'stressed' | 'anxious' | 'sad' | 'frustrated' | 'other';
+
+export interface SafeSpaceEntry {
+  id: string;
+  content: string;
+  mode: SafeSpaceMode;
+  category?: FeelingCategory;
+  author: 'me' | 'partner';
+  reactions: string[];
+  isResolved: boolean;
+  createdAt: Date;
 }

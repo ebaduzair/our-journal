@@ -4,9 +4,9 @@ import { PageHeader } from '@/components/PageHeader';
 import { EventCard } from '@/components/EventCard';
 import { TimelineView } from '@/components/TimelineView';
 import { AddButton } from '@/components/AddButton';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import type { SpecialEvent } from '@/types';
-import { X, Calendar, List, GitBranch } from 'lucide-react';
+import { X, Calendar, List, GitBranch, Loader2 } from 'lucide-react';
 
 const eventTypes = [
   { type: 'anniversary' as const, label: 'Anniversary', emoji: '💍' },
@@ -15,27 +15,30 @@ const eventTypes = [
   { type: 'memory' as const, label: 'Memory', emoji: '📸' },
 ];
 
+// Transform from DB format to app format
+const transformEvent = (dbEvent: any): SpecialEvent => ({
+  id: dbEvent.id,
+  title: dbEvent.title,
+  date: new Date(dbEvent.date),
+  type: dbEvent.type,
+  description: dbEvent.description,
+  emoji: dbEvent.emoji,
+});
+
 const Events = () => {
-  const [events, setEvents] = useLocalStorage<SpecialEvent[]>('special-events', [
-    {
-      id: '1',
-      title: 'Our Anniversary',
-      date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 14),
-      type: 'anniversary',
-      description: 'The day we said "I do" 💍',
-      emoji: '💍',
-    },
-    {
-      id: '2',
-      title: 'First Date',
-      date: new Date(new Date().getFullYear() - 2, 5, 20),
-      type: 'date',
-      description: 'Where our story began...',
-      emoji: '☕',
-    },
-  ]);
+  const {
+    data: events,
+    loading,
+    addItem
+  } = useSupabaseData<SpecialEvent>({
+    table: 'special_events',
+    orderBy: { column: 'date', ascending: true },
+    transform: transformEvent,
+  });
+
   const [isAdding, setIsAdding] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [submitting, setSubmitting] = useState(false);
   const [newEvent, setNewEvent] = useState({
     title: '',
     date: '',
@@ -44,31 +47,31 @@ const Events = () => {
     emoji: '💍',
   });
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!newEvent.title.trim() || !newEvent.date) return;
-    
-    const event: SpecialEvent = {
-      id: Date.now().toString(),
+
+    setSubmitting(true);
+    await addItem({
       title: newEvent.title,
-      date: new Date(newEvent.date),
+      date: newEvent.date,
       type: newEvent.type,
-      description: newEvent.description,
+      description: newEvent.description || null,
       emoji: newEvent.emoji,
-    };
-    
-    setEvents([event, ...events]);
+    } as any);
+
     setNewEvent({ title: '', date: '', type: 'anniversary', description: '', emoji: '💍' });
     setIsAdding(false);
+    setSubmitting(false);
   };
 
-  const sortedEvents = [...events].sort((a, b) => 
+  const sortedEvents = [...events].sort((a, b) =>
     new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title="Special Events" 
+    <div className="min-h-screen bg-background pb-24 overflow-x-hidden">
+      <PageHeader
+        title="Special Events"
         subtitle="Moments we never want to forget"
         emoji="📅"
       />
@@ -78,22 +81,20 @@ const Events = () => {
         <div className="flex gap-2 p-1 bg-muted rounded-xl">
           <button
             onClick={() => setViewMode('list')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'list'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${viewMode === 'list'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground'
+              }`}
           >
             <List className="w-4 h-4" />
             List
           </button>
           <button
             onClick={() => setViewMode('timeline')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'timeline'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${viewMode === 'timeline'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground'
+              }`}
           >
             <GitBranch className="w-4 h-4" />
             Timeline
@@ -101,7 +102,11 @@ const Events = () => {
         </div>
       </div>
 
-      {viewMode === 'list' ? (
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : viewMode === 'list' ? (
         <div className="px-4 space-y-4">
           <AnimatePresence>
             {sortedEvents.map((event, index) => (
@@ -143,7 +148,7 @@ const Events = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-end justify-center"
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[60] flex items-end justify-center"
             onClick={() => setIsAdding(false)}
           >
             <motion.div
@@ -157,7 +162,7 @@ const Events = () => {
                 <h2 className="font-romantic text-2xl font-semibold text-foreground">
                   New Special Event 🎉
                 </h2>
-                <button 
+                <button
                   onClick={() => setIsAdding(false)}
                   className="p-2 rounded-full hover:bg-muted transition-colors"
                 >
@@ -175,11 +180,10 @@ const Events = () => {
                       <button
                         key={et.type}
                         onClick={() => setNewEvent({ ...newEvent, type: et.type, emoji: et.emoji })}
-                        className={`py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
-                          newEvent.type === et.type
-                            ? 'gradient-romantic text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
+                        className={`py-2 px-3 rounded-xl text-sm font-medium transition-colors ${newEvent.type === et.type
+                          ? 'gradient-romantic text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                          }`}
                       >
                         {et.emoji} {et.label}
                       </button>
@@ -228,10 +232,14 @@ const Events = () => {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddEvent}
-                disabled={!newEvent.title.trim() || !newEvent.date}
+                disabled={!newEvent.title.trim() || !newEvent.date || submitting}
                 className="w-full mt-6 py-4 rounded-2xl gradient-romantic text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Calendar className="w-5 h-5" />
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Calendar className="w-5 h-5" />
+                )}
                 Add Event
               </motion.button>
             </motion.div>

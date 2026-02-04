@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Check, Sparkles, Heart } from 'lucide-react';
+import { Plus, Check, Sparkles, Heart, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import type { BucketListItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -17,46 +16,66 @@ import {
 
 const emojiOptions = ['✈️', '🏖️', '🎢', '🍽️', '🎭', '🎵', '⛰️', '🏠', '💍', '👶', '🐕', '🎓', '💪', '📚', '🎨'];
 
+// Transform from DB format to app format
+const transformBucketItem = (dbItem: any): BucketListItem => ({
+  id: dbItem.id,
+  title: dbItem.title,
+  description: dbItem.description,
+  isCompleted: dbItem.is_completed,
+  completedAt: dbItem.completed_at ? new Date(dbItem.completed_at) : undefined,
+  createdAt: new Date(dbItem.created_at),
+  emoji: dbItem.emoji,
+});
+
 const BucketList = () => {
-  const [items, setItems] = useLocalStorage<BucketListItem[]>('bucket-list', []);
+  const {
+    data: items,
+    loading,
+    addItem,
+    updateItem,
+    deleteItem
+  } = useSupabaseData<BucketListItem>({
+    table: 'bucket_list_items',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: transformBucketItem,
+  });
+
   const [isOpen, setIsOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState('✈️');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newTitle.trim()) return;
-    
-    const newItem: BucketListItem = {
-      id: Date.now().toString(),
+
+    setSubmitting(true);
+    await addItem({
       title: newTitle,
-      description: newDescription || undefined,
-      isCompleted: false,
-      createdAt: new Date(),
+      description: newDescription || null,
+      is_completed: false,
       emoji: selectedEmoji,
-    };
-    
-    setItems([newItem, ...items]);
+    } as any);
+
     setNewTitle('');
     setNewDescription('');
     setSelectedEmoji('✈️');
     setIsOpen(false);
+    setSubmitting(false);
   };
 
-  const toggleComplete = (id: string) => {
-    setItems(items.map(item => 
-      item.id === id 
-        ? { 
-            ...item, 
-            isCompleted: !item.isCompleted,
-            completedAt: !item.isCompleted ? new Date() : undefined 
-          }
-        : item
-    ));
+  const toggleComplete = async (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (item) {
+      await updateItem(id, {
+        is_completed: !item.isCompleted,
+        completed_at: !item.isCompleted ? new Date().toISOString() : null,
+      } as any);
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const handleDelete = async (id: string) => {
+    await deleteItem(id);
   };
 
   const pendingItems = items.filter(item => !item.isCompleted);
@@ -64,9 +83,9 @@ const BucketList = () => {
   const completionRate = items.length > 0 ? Math.round((completedItems.length / items.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title="Our Bucket List" 
+    <div className="min-h-screen bg-background pb-24 overflow-x-hidden">
+      <PageHeader
+        title="Our Bucket List"
         subtitle="Dreams we'll chase together"
         emoji="🪣"
       />
@@ -97,120 +116,128 @@ const BucketList = () => {
       )}
 
       <div className="px-4 space-y-6">
-        {/* Pending Items */}
-        {pendingItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-gold" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Dreams to Chase
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <AnimatePresence>
-                {pendingItems.map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-4 rounded-2xl bg-card shadow-card border border-rose-light/30 group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => toggleComplete(item.id)}
-                        className="mt-0.5 w-6 h-6 rounded-full border-2 border-primary/50 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-colors"
-                      >
-                        <Check className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-50" />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{item.emoji}</span>
-                          <h3 className="font-medium text-foreground">{item.title}</h3>
-                        </div>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        )}
-
-        {/* Completed Items */}
-        {completedItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Heart className="w-4 h-4 text-primary fill-current" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Dreams We've Lived
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <AnimatePresence>
-                {completedItems.map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-4 rounded-2xl bg-muted/50 border border-border group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => toggleComplete(item.id)}
-                        className="mt-0.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+        ) : (
+          <>
+            {/* Pending Items */}
+            {pendingItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-gold" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Dreams to Chase
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {pendingItems.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-4 rounded-2xl bg-card shadow-card border border-rose-light/30 group"
                       >
-                        <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg opacity-60">{item.emoji}</span>
-                          <h3 className="font-medium text-muted-foreground line-through">{item.title}</h3>
+                        <div className="flex items-start gap-3">
+                          <button
+                            onClick={() => toggleComplete(item.id)}
+                            className="mt-0.5 w-6 h-6 rounded-full border-2 border-primary/50 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <Check className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-50" />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{item.emoji}</span>
+                              <h3 className="font-medium text-foreground">{item.title}</h3>
+                            </div>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm"
+                          >
+                            ✕
+                          </button>
                         </div>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground/70 mt-1 line-through">{item.description}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
 
-        {/* Empty State */}
-        {items.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-rose-light flex items-center justify-center">
-              <span className="text-4xl">🪣</span>
-            </div>
-            <h3 className="font-romantic text-xl text-foreground mb-2">Start Your Adventure</h3>
-            <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-              Add dreams and goals you want to experience together. Check them off as you go!
-            </p>
-          </motion.div>
+            {/* Completed Items */}
+            {completedItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Heart className="w-4 h-4 text-primary fill-current" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Dreams We've Lived
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {completedItems.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-4 rounded-2xl bg-muted/50 border border-border group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <button
+                            onClick={() => toggleComplete(item.id)}
+                            className="mt-0.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                          >
+                            <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg opacity-60">{item.emoji}</span>
+                              <h3 className="font-medium text-muted-foreground line-through">{item.title}</h3>
+                            </div>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground/70 mt-1 line-through">{item.description}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {items.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-rose-light flex items-center justify-center">
+                  <span className="text-4xl">🪣</span>
+                </div>
+                <h3 className="font-romantic text-xl text-foreground mb-2">Start Your Adventure</h3>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                  Add dreams and goals you want to experience together. Check them off as you go!
+                </p>
+              </motion.div>
+            )}
+          </>
         )}
       </div>
 
@@ -225,7 +252,7 @@ const BucketList = () => {
             <Plus className="w-6 h-6 text-primary-foreground" />
           </motion.button>
         </DialogTrigger>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="w-[90%] max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-romantic text-xl text-gradient">Add a Dream</DialogTitle>
           </DialogHeader>
@@ -237,11 +264,10 @@ const BucketList = () => {
                   <button
                     key={emoji}
                     onClick={() => setSelectedEmoji(emoji)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
-                      selectedEmoji === emoji 
-                        ? 'bg-primary/20 ring-2 ring-primary scale-110' 
-                        : 'bg-muted hover:bg-muted/80'
-                    }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${selectedEmoji === emoji
+                      ? 'bg-primary/20 ring-2 ring-primary scale-110'
+                      : 'bg-muted hover:bg-muted/80'
+                      }`}
                   >
                     {emoji}
                   </button>
@@ -266,11 +292,12 @@ const BucketList = () => {
                 className="rounded-xl"
               />
             </div>
-            <Button 
-              onClick={handleAdd} 
+            <Button
+              onClick={handleAdd}
               className="w-full rounded-xl gradient-romantic text-primary-foreground"
-              disabled={!newTitle.trim()}
+              disabled={!newTitle.trim() || submitting}
             >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Add to Our List 💕
             </Button>
           </div>

@@ -3,77 +3,98 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { LoveNoteCard } from '@/components/LoveNoteCard';
 import { AddButton } from '@/components/AddButton';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseDataWithAuthor } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import type { LoveNote } from '@/types';
-import { X, Send, Heart } from 'lucide-react';
+import { X, Send, Heart, Loader2 } from 'lucide-react';
+
+// Transform from DB format to app format
+const transformNote = (dbNote: any): LoveNote => ({
+  id: dbNote.id,
+  content: dbNote.content,
+  author: dbNote.author_id === dbNote._currentUserId ? 'me' : 'partner',
+  createdAt: new Date(dbNote.created_at),
+  hearts: dbNote.hearts || 0,
+});
 
 const LoveNotes = () => {
-  const [notes, setNotes] = useLocalStorage<LoveNote[]>('love-notes', [
-    {
-      id: '1',
-      content: "I love how you always know how to make me laugh, even on my worst days.",
-      author: 'me',
-      createdAt: new Date(Date.now() - 86400000),
-      hearts: 3,
-    },
-    {
-      id: '2',
-      content: "The way you look at me makes my heart skip a beat. Every. Single. Time.",
-      author: 'partner',
-      createdAt: new Date(Date.now() - 172800000),
-      hearts: 5,
-    },
-  ]);
+  const { user } = useAuth();
+  const {
+    data: notes,
+    loading,
+    addItem,
+    updateItem,
+    isAuthor
+  } = useSupabaseDataWithAuthor<LoveNote>({
+    table: 'love_notes',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (note) => ({
+      ...transformNote({ ...note, _currentUserId: user?.id }),
+      _authorId: note.author_id, // Keep for reference
+    }),
+  });
+
   const [isAdding, setIsAdding] = useState(false);
   const [newNote, setNewNote] = useState('');
-  const [author, setAuthor] = useState<'me' | 'partner'>('me');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    
-    const note: LoveNote = {
-      id: Date.now().toString(),
+
+    setSubmitting(true);
+    await addItem({
       content: newNote,
-      author,
-      createdAt: new Date(),
       hearts: 0,
-    };
-    
-    setNotes([note, ...notes]);
+    } as any);
+
     setNewNote('');
     setIsAdding(false);
+    setSubmitting(false);
   };
 
-  const handleHeart = (id: string) => {
-    setNotes(notes.map(n => 
-      n.id === id ? { ...n, hearts: n.hearts + 1 } : n
-    ));
+  const handleHeart = async (id: string) => {
+    const note = notes.find(n => n.id === id);
+    if (note) {
+      await updateItem(id, { hearts: note.hearts + 1 } as any);
+    }
   };
+
+  // Add author info for display
+  const notesWithAuthor = notes.map(note => ({
+    ...note,
+    author: (note as any)._authorId === user?.id ? 'me' as const : 'partner' as const,
+  }));
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title="Love Notes" 
+    <div className="min-h-screen bg-background pb-24 overflow-x-hidden">
+      <PageHeader
+        title="Love Notes"
         subtitle="Little words that mean everything"
         emoji="💕"
       />
 
       <div className="px-4 space-y-4">
-        <AnimatePresence>
-          {notes.map((note, index) => (
-            <motion.div
-              key={note.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <LoveNoteCard note={note} onHeart={handleHeart} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <AnimatePresence>
+            {notesWithAuthor.map((note, index) => (
+              <motion.div
+                key={note.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <LoveNoteCard note={note} onHeart={handleHeart} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
 
-        {notes.length === 0 && (
+        {!loading && notes.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -96,7 +117,7 @@ const LoveNotes = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-end justify-center"
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[60] flex items-end justify-center"
             onClick={() => setIsAdding(false)}
           >
             <motion.div
@@ -110,34 +131,11 @@ const LoveNotes = () => {
                 <h2 className="font-romantic text-2xl font-semibold text-foreground">
                   Write a Love Note 💌
                 </h2>
-                <button 
+                <button
                   onClick={() => setIsAdding(false)}
                   className="p-2 rounded-full hover:bg-muted transition-colors"
                 >
                   <X className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setAuthor('me')}
-                  className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-colors ${
-                    author === 'me' 
-                      ? 'gradient-romantic text-primary-foreground' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  From Me ❤️
-                </button>
-                <button
-                  onClick={() => setAuthor('partner')}
-                  className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-colors ${
-                    author === 'partner' 
-                      ? 'gradient-romantic text-primary-foreground' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  From My Love 💕
                 </button>
               </div>
 
@@ -151,10 +149,14 @@ const LoveNotes = () => {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddNote}
-                disabled={!newNote.trim()}
+                disabled={!newNote.trim() || submitting}
                 className="w-full mt-4 py-4 rounded-2xl gradient-romantic text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Send className="w-5 h-5" />
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
                 Send Love
               </motion.button>
             </motion.div>

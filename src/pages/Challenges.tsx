@@ -23,7 +23,7 @@ export default function Challenges() {
     lastCompletedWeek: '',
   });
   const [weeklyChallenge, setWeeklyChallenge] = useLocalStorage<{ challengeId: string; weekString: string } | null>('couple-weekly-challenge', null);
-  
+
   const [selectedCategory, setSelectedCategory] = useState<Challenge['category'] | 'all'>('all');
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
@@ -84,7 +84,7 @@ export default function Challenges() {
       const currentYear = getYear(new Date());
 
       if ((currentYear === lastYear && currentWeekNum === lastWeekNum + 1) ||
-          (currentYear === lastYear + 1 && lastWeekNum >= 52 && currentWeekNum === 1)) {
+        (currentYear === lastYear + 1 && lastWeekNum >= 52 && currentWeekNum === 1)) {
         newStreak.currentStreak += 1;
       } else {
         newStreak.currentStreak = 1;
@@ -123,7 +123,7 @@ export default function Challenges() {
   const categories: (Challenge['category'] | 'all')[] = ['all', 'communication', 'adventure', 'romance', 'fun'];
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 overflow-x-hidden">
       <PageHeader
         title="Challenges"
         subtitle="Weekly fun to keep the spark alive"
@@ -132,32 +132,32 @@ export default function Challenges() {
 
       <div className="px-4 space-y-6">
         {/* Stats Section */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <Card className="text-center">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-center gap-1 text-orange-500 mb-1">
                 <Flame className="w-5 h-5" />
                 <span className="text-2xl font-bold">{streak.currentStreak}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Week Streak</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Week Streak</p>
             </CardContent>
           </Card>
           <Card className="text-center">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
                 <Trophy className="w-5 h-5" />
                 <span className="text-2xl font-bold">{streak.longestStreak}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Best Streak</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Best Streak</p>
             </CardContent>
           </Card>
           <Card className="text-center">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-center gap-1 text-primary mb-1">
                 <Check className="w-5 h-5" />
                 <span className="text-2xl font-bold">{totalCompleted}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Completed</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Completed</p>
             </CardContent>
           </Card>
         </div>
@@ -183,9 +183,9 @@ export default function Challenges() {
                       {getCategoryLabel(currentChallenge.category)}
                     </Badge>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{currentChallenge.title}</h3>
+                  <h3 className="text-xl font-semibold mb-2 break-words">{currentChallenge.title}</h3>
                   <p className="text-muted-foreground text-sm mb-4">{currentChallenge.description}</p>
-                  
+
                   <div className="flex gap-2">
                     {isCurrentChallengeCompleted ? (
                       <div className="flex items-center gap-2 text-green-600">
@@ -231,9 +231,9 @@ export default function Challenges() {
         {/* Challenge Library */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Challenge Library</h2>
-          
+
           {/* Category Filter */}
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
             {categories.map(cat => (
               <Button
                 key={cat}
@@ -261,18 +261,18 @@ export default function Challenges() {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Card className={`${isCompleted ? 'opacity-60' : ''}`}>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <span className="text-2xl">{challenge.emoji}</span>
+                      <CardContent className="p-4 flex items-start gap-3">
+                        <span className="text-2xl mt-1 shrink-0">{challenge.emoji}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium truncate">{challenge.title}</h4>
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <h4 className="font-medium text-sm leading-tight">{challenge.title}</h4>
                             {isCompleted && <Check className="w-4 h-4 text-green-500 shrink-0" />}
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">{challenge.description}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed mb-2">{challenge.description}</p>
+                          <Badge variant="outline" className={`text-[10px] px-2 py-0 h-5 ${getCategoryColor(challenge.category)}`}>
+                            {getCategoryLabel(challenge.category)}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className={`shrink-0 text-xs ${getCategoryColor(challenge.category)}`}>
-                          {getCategoryLabel(challenge.category)}
-                        </Badge>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -293,7 +293,7 @@ export default function Challenges() {
               {showHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               <Badge variant="secondary" className="ml-auto">{completedHistory.length}</Badge>
             </button>
-            
+
             <AnimatePresence>
               {showHistory && (
                 <motion.div
@@ -357,11 +357,10 @@ export default function Challenges() {
                     className="p-2"
                   >
                     <Star
-                      className={`w-6 h-6 transition-colors ${
-                        rating <= completionRating
-                          ? 'text-amber-500 fill-amber-500'
-                          : 'text-muted-foreground'
-                      }`}
+                      className={`w-6 h-6 transition-colors ${rating <= completionRating
+                        ? 'text-amber-500 fill-amber-500'
+                        : 'text-muted-foreground'
+                        }`}
                     />
                   </button>
                 ))}

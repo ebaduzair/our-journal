@@ -3,52 +3,60 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { SurpriseCard } from '@/components/SurpriseCard';
 import { AddButton } from '@/components/AddButton';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseDataWithAuthor } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Surprise } from '@/types';
-import { X, Gift } from 'lucide-react';
+import { X, Gift, Loader2 } from 'lucide-react';
+
+// Transform from DB format to app format
+const transformSurprise = (dbSurprise: any, currentUserId?: string): Surprise => ({
+  id: dbSurprise.id,
+  title: dbSurprise.title,
+  description: dbSurprise.description,
+  isRevealed: dbSurprise.is_revealed,
+  plannedFor: dbSurprise.planned_for ? new Date(dbSurprise.planned_for) : undefined,
+  createdBy: dbSurprise.created_by === currentUserId ? 'me' : 'partner',
+});
 
 const Surprises = () => {
-  const [surprises, setSurprises] = useLocalStorage<Surprise[]>('surprises', [
-    {
-      id: '1',
-      title: 'Breakfast in Bed',
-      description: 'Waking you up with your favorite pancakes and fresh flowers 🌸',
-      isRevealed: false,
-      createdBy: 'me',
-    },
-    {
-      id: '2',
-      title: 'Picnic Under the Stars',
-      description: 'A cozy blanket, your favorite wine, and a million stars ✨',
-      isRevealed: true,
-      createdBy: 'partner',
-    },
-  ]);
+  const { user } = useAuth();
+  const {
+    data: surprises,
+    loading,
+    addItem,
+    updateItem
+  } = useSupabaseDataWithAuthor<Surprise>({
+    table: 'surprises',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (s) => transformSurprise(s, user?.id),
+    authorField: 'created_by',
+  });
+
   const [isAdding, setIsAdding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newSurprise, setNewSurprise] = useState({
     title: '',
     description: '',
-    createdBy: 'me' as 'me' | 'partner',
   });
 
-  const handleReveal = (id: string) => {
-    setSurprises(surprises.map(s => 
-      s.id === id ? { ...s, isRevealed: true } : s
-    ));
+  const handleReveal = async (id: string) => {
+    await updateItem(id, { is_revealed: true } as any);
   };
 
-  const handleAddSurprise = () => {
+  const handleAddSurprise = async () => {
     if (!newSurprise.title.trim() || !newSurprise.description.trim()) return;
-    
-    const surprise: Surprise = {
-      id: Date.now().toString(),
-      ...newSurprise,
-      isRevealed: false,
-    };
-    
-    setSurprises([surprise, ...surprises]);
-    setNewSurprise({ title: '', description: '', createdBy: 'me' });
+
+    setSubmitting(true);
+    await addItem({
+      title: newSurprise.title,
+      description: newSurprise.description,
+      is_revealed: false,
+      created_by: user?.id,
+    } as any);
+
+    setNewSurprise({ title: '', description: '' });
     setIsAdding(false);
+    setSubmitting(false);
   };
 
   const hiddenSurprises = surprises.filter(s => !s.isRevealed);
@@ -56,63 +64,71 @@ const Surprises = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title="Surprises" 
+      <PageHeader
+        title="Surprises"
         subtitle="Little secrets waiting to be discovered"
         emoji="🎁"
       />
 
       <div className="px-4 space-y-6">
-        {hiddenSurprises.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-              <Gift className="w-4 h-4" />
-              Waiting to be revealed ({hiddenSurprises.length})
-            </h3>
-            <div className="space-y-4">
-              <AnimatePresence>
-                {hiddenSurprises.map((surprise) => (
-                  <SurpriseCard 
-                    key={surprise.id} 
-                    surprise={surprise} 
-                    onReveal={handleReveal} 
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        )}
+        ) : (
+          <>
+            {hiddenSurprises.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <Gift className="w-4 h-4" />
+                  Waiting to be revealed ({hiddenSurprises.length})
+                </h3>
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {hiddenSurprises.map((surprise) => (
+                      <SurpriseCard
+                        key={surprise.id}
+                        surprise={surprise}
+                        onReveal={handleReveal}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
 
-        {revealedSurprises.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              ✨ Revealed Surprises
-            </h3>
-            <div className="space-y-4">
-              <AnimatePresence>
-                {revealedSurprises.map((surprise) => (
-                  <SurpriseCard 
-                    key={surprise.id} 
-                    surprise={surprise} 
-                    onReveal={handleReveal} 
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
+            {revealedSurprises.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  ✨ Revealed Surprises
+                </h3>
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {revealedSurprises.map((surprise) => (
+                      <SurpriseCard
+                        key={surprise.id}
+                        surprise={surprise}
+                        onReveal={handleReveal}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
 
-        {surprises.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
-            <Gift className="w-12 h-12 mx-auto mb-4 text-coral" />
-            <p className="text-muted-foreground">
-              Plan your first surprise! 🎁
-            </p>
-          </motion.div>
+            {surprises.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
+                <Gift className="w-12 h-12 mx-auto mb-4 text-coral" />
+                <p className="text-muted-foreground">
+                  Plan your first surprise! 🎁
+                </p>
+              </motion.div>
+            )}
+          </>
         )}
       </div>
 
@@ -139,7 +155,7 @@ const Surprises = () => {
                 <h2 className="font-romantic text-2xl font-semibold text-foreground">
                   Plan a Surprise 🎁
                 </h2>
-                <button 
+                <button
                   onClick={() => setIsAdding(false)}
                   className="p-2 rounded-full hover:bg-muted transition-colors"
                 >
@@ -148,29 +164,6 @@ const Surprises = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setNewSurprise({ ...newSurprise, createdBy: 'me' })}
-                    className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-colors ${
-                      newSurprise.createdBy === 'me' 
-                        ? 'gradient-romantic text-primary-foreground' 
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    From Me
-                  </button>
-                  <button
-                    onClick={() => setNewSurprise({ ...newSurprise, createdBy: 'partner' })}
-                    className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-colors ${
-                      newSurprise.createdBy === 'partner' 
-                        ? 'gradient-romantic text-primary-foreground' 
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    From My Love
-                  </button>
-                </div>
-
                 <input
                   type="text"
                   value={newSurprise.title}
@@ -190,10 +183,14 @@ const Surprises = () => {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddSurprise}
-                disabled={!newSurprise.title.trim() || !newSurprise.description.trim()}
+                disabled={!newSurprise.title.trim() || !newSurprise.description.trim() || submitting}
                 className="w-full mt-4 py-4 rounded-2xl gradient-romantic text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Gift className="w-5 h-5" />
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Gift className="w-5 h-5" />
+                )}
                 Create Surprise
               </motion.button>
             </motion.div>
