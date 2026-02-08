@@ -17,7 +17,7 @@ const AuthPage = () => {
     const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const { signIn, signUp, createCoupleCode, joinCouple, profile, user } = useAuth();
+    const { signIn, signUp, createCoupleCode, joinCouple, profile, user, loading: authLoading } = useAuth();
     const { toast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -57,12 +57,24 @@ const AuthPage = () => {
 
     const handleCreateCode = async () => {
         console.log('Generate button clicked!');
+        setLoading(true);
         try {
             const code = await createCoupleCode();
-            console.log('Code generated:', code);
+            console.log('Code generated and saved:', code);
             setGeneratedCode(code);
+            toast({
+                title: 'Couple Code Created! 💕',
+                description: 'Share this code with your partner to connect.',
+            });
         } catch (error) {
             console.error('Error generating code:', error);
+            toast({
+                title: 'Failed to create code',
+                description: 'Please try again.',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -90,9 +102,9 @@ const AuthPage = () => {
         setLoading(false);
     };
 
-    // Check if user needs couple setup (profile exists but no couple code, or profile is null but user is logged in)
-    // Also keep showing if we just generated a code so user can see/copy it
-    if (user && (!profile || !profile.couple_code || generatedCode)) {
+    // Check if user needs couple setup (profile exists but no couple code)
+    // IMPORTANT: Only check AFTER loading is complete to avoid flashing the setup screen
+    if (user && !authLoading && (!profile?.couple_code || generatedCode)) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center p-4">
                 <motion.div
@@ -154,8 +166,9 @@ const AuthPage = () => {
                                 <Button
                                     onClick={handleCreateCode}
                                     className="w-full rounded-xl gradient-romantic text-white"
+                                    disabled={loading}
                                 >
-                                    Generate Couple Code
+                                    {loading ? 'Creating...' : 'Generate Couple Code'}
                                 </Button>
                             )}
                         </div>

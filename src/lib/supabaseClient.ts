@@ -4,13 +4,9 @@ import type { Database } from './database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-// Debug: Check if env vars are loaded
-console.log('Supabase URL:', supabaseUrl ? 'Loaded ✓' : 'MISSING ✗');
-console.log('Supabase Key:', supabaseAnonKey ? 'Loaded ✓' : 'MISSING ✗');
-
+// Validate env vars silently - only error if missing
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Missing Supabase environment variables!');
-  console.error('Make sure your .env file has VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  console.error('Missing Supabase environment variables');
 }
 
 // Create single instance

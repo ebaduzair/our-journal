@@ -39,33 +39,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchProfile = async (userId: string) => {
-        console.log('Fetching profile for user:', userId);
-
-        // Set a timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-            console.warn('Profile fetch timed out after 5 seconds');
-            setLoading(false);
-        }, 5000);
+    const fetchProfile = async (userId: string, accessToken?: string) => {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const token = accessToken || supabaseKey;
 
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .maybeSingle();
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch(
+                `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}&select=*`,
+                {
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    signal: controller.signal,
+                }
+            );
 
             clearTimeout(timeoutId);
 
-            if (error) {
-                console.error('Error fetching profile:', error);
-            } else if (data) {
-                console.log('Profile fetched:', data);
-                setProfile(data);
+            if (!response.ok) {
+                setLoading(false);
+                return;
+            }
+
+            const data = await response.json();
+
+            if (Array.isArray(data) && data.length > 0) {
+                setProfile(data[0]);
             }
         } catch (error) {
-            clearTimeout(timeoutId);
-            console.error('Exception fetching profile:', error);
+            // Silent fail - profile will be null
         } finally {
             setLoading(false);
         }
@@ -76,29 +83,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const initAuth = async () => {
             try {
-                console.log('Getting initial session...');
                 const { data: { session }, error } = await supabase.auth.getSession();
 
                 if (error) {
-                    console.error('Error getting session:', error);
                     if (mounted) setLoading(false);
                     return;
                 }
-
-                console.log('Session:', session ? 'exists' : 'none');
 
                 if (mounted) {
                     setSession(session);
                     setUser(session?.user ?? null);
 
                     if (session?.user) {
-                        await fetchProfile(session.user.id);
+                        await fetchProfile(session.user.id, session.access_token);
                     } else {
                         setLoading(false);
                     }
                 }
             } catch (error) {
-                console.error('Failed to initialize auth:', error);
                 if (mounted) setLoading(false);
             }
         };
@@ -108,13 +110,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                console.log('Auth state changed:', event);
                 if (mounted) {
                     setSession(session);
                     setUser(session?.user ?? null);
 
                     if (session?.user) {
-                        await fetchProfile(session.user.id);
+                        await fetchProfile(session.user.id, session.access_token);
                     } else {
                         setProfile(null);
                         setLoading(false);
@@ -189,41 +190,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const createCoupleCode = async () => {
         const code = generateCoupleCode();
-        console.log('Generated code:', code);
 
-        if (user) {
-            console.log('User found, attempting to save profile...');
+        if (!user) {
+            throw new Error('Not logged in');
+        }
 
-            // Try to upsert with a timeout - don't wait forever
-            const upsertWithTimeout = async () => {
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout')), 5000)
-                );
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const accessToken = session?.access_token || supabaseKey;
 
-                const upsertPromise = supabase
-                    .from('profiles')
-                    .upsert({
-                        id: user.id,
-                        email: user.email || '',
-                        display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
-                        couple_code: code,
-                    } as any);
+        const profileData = {
+            id: user.id,
+            email: user.email || '',
+            display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
+            couple_code: code,
+        };
 
-                console.log('Upserting profile...');
-
-                try {
-                    const result = await Promise.race([upsertPromise, timeoutPromise]);
-                    console.log('Upsert completed:', result);
-                } catch (error) {
-                    console.log('Upsert timed out or failed, continuing anyway...', error);
+        try {
+            const response = await fetch(
+                `${supabaseUrl}/rest/v1/profiles`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates,return=representation',
+                    },
+                    body: JSON.stringify(profileData),
                 }
-            };
+            );
 
-            // Fire and forget - don't wait
-            upsertWithTimeout();
+            if (!response.ok) {
+                throw new Error('Failed to save couple code to database');
+            }
 
-            // Immediately set profile locally so user can proceed
-            console.log('Setting profile locally...');
+            await response.json();
+
             setProfile({
                 id: user.id,
                 email: user.email || '',
@@ -231,25 +234,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 couple_code: code,
                 partner_id: null,
             });
-        } else {
-            console.log('No user found!');
-        }
 
-        return code;
+            return code;
+        } catch (error) {
+            throw error;
+        }
     };
 
     const joinCouple = async (code: string) => {
-        console.log('Joining couple with code:', code);
-
         if (!user) {
-            console.error('No user found!');
             return { error: new Error('Not logged in') };
         }
 
         try {
-            // Step 1: Find the partner using direct fetch (more reliable)
-            console.log('Step 1: Finding partner with code:', code.toUpperCase());
-
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -264,22 +261,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
 
             const data = await response.json();
-            console.log('Find partner result:', data);
-
             const partner = Array.isArray(data) && data.length > 0 ? data[0] : null;
 
             if (!partner) {
-                console.error('No partner found with code:', code);
                 return { error: new Error('Invalid couple code. No one has this code yet.') };
             }
 
-            console.log('Found partner:', partner);
-
-            // Get auth token for authenticated requests
             const accessToken = session?.access_token || supabaseKey;
 
-            // Step 2: Update current user's profile using direct fetch
-            console.log('Step 2: Updating current user profile...');
             const upsertPayload = {
                 id: user.id,
                 email: user.email || '',
@@ -288,7 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 partner_id: partner.id
             };
 
-            const upsertResponse = await fetch(
+            await fetch(
                 `${supabaseUrl}/rest/v1/profiles`,
                 {
                     method: 'POST',
@@ -301,11 +290,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     body: JSON.stringify(upsertPayload),
                 }
             );
-            console.log('Update self result:', upsertResponse.status);
 
-            // Step 3: Update partner's profile with current user's ID
-            console.log('Step 3: Updating partner profile with our ID...');
-            const updatePartnerResponse = await fetch(
+            await fetch(
                 `${supabaseUrl}/rest/v1/profiles?id=eq.${partner.id}`,
                 {
                     method: 'PATCH',
@@ -317,10 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     body: JSON.stringify({ partner_id: user.id }),
                 }
             );
-            console.log('Update partner result:', updatePartnerResponse.status);
 
-            // Step 4: Set profile locally (skip fetching to avoid hangs)
-            console.log('Step 4: Setting profile locally...');
             setProfile({
                 id: user.id,
                 email: user.email || '',
@@ -329,10 +312,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 partner_id: partner.id,
             });
 
-            console.log('✅ Couple connection complete!');
             return { error: null };
         } catch (error) {
-            console.error('Join couple error:', error);
             return { error: error as Error };
         }
     };

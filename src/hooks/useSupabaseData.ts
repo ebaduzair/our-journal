@@ -139,8 +139,12 @@ export function useSupabaseData<T extends { id: string }>(
                 insertData.couple_code = coupleCode;
             }
 
-            // Add author_id if the table has it
-            if ('author_id' in insertData || table.includes('note') || table.includes('reason') || table.includes('food') || table.includes('water') || table.includes('safe_space')) {
+            // Add author_id ONLY for tables that actually have this column
+            // Tables WITH author_id: love_notes, reasons, food_logs, water_intake, safe_space_entries
+            // Tables WITHOUT author_id: bucket_list_items, special_events, surprises, challenges, etc.
+            const tablesWithAuthorId = ['love_notes', 'reasons', 'food_logs', 'water_intake', 'safe_space_entries'];
+
+            if (user?.id && tablesWithAuthorId.includes(table)) {
                 insertData.author_id = user.id;
             }
 
