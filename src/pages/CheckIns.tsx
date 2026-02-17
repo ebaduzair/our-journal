@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Heart, ChevronDown, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Heart, ChevronDown, Plus, Sparkles, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseDataWithAuthor } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,15 +26,61 @@ const getCurrentWeekString = () => {
   return `${getYear(now)}-W${String(getISOWeek(now)).padStart(2, '0')}`;
 };
 
+// Transform check-in from DB format to app format
+const transformCheckIn = (dbEntry: any, currentUserId?: string): CheckInEntry => ({
+  id: dbEntry.id,
+  weekString: dbEntry.week_string,
+  createdAt: new Date(dbEntry.created_at),
+  responses: {
+    connectionRating: dbEntry.connection_rating,
+    partnerHighlight: dbEntry.partner_highlight,
+    unresolvedIssues: dbEntry.unresolved_issues,
+    gratitude: dbEntry.gratitude,
+    nextWeekPlan: dbEntry.next_week_plan,
+  },
+  overallMood: dbEntry.overall_mood,
+});
+
+// Transform gratitude entry from DB format to app format
+const transformGratitude = (dbEntry: any, currentUserId?: string): GratitudeEntry => ({
+  id: dbEntry.id,
+  content: dbEntry.content,
+  mood: dbEntry.mood,
+  createdAt: new Date(dbEntry.created_at),
+  author: dbEntry.author_id === currentUserId ? 'me' : 'partner',
+});
+
 const CheckIns = () => {
-  const [checkIns, setCheckIns] = useLocalStorage<CheckInEntry[]>('check-ins', []);
-  const [gratitudeEntries, setGratitudeEntries] = useLocalStorage<GratitudeEntry[]>('gratitude-entries', []);
-  
+  const { user } = useAuth();
+
+  // Fetch check-ins from Supabase
+  const {
+    data: checkIns,
+    loading: checkInsLoading,
+    addItem: addCheckIn,
+  } = useSupabaseDataWithAuthor<CheckInEntry>({
+    table: 'check_in_entries',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (entry: any) => transformCheckIn(entry, user?.id),
+  });
+
+  // Fetch gratitude entries from Supabase
+  const {
+    data: gratitudeEntries,
+    loading: gratitudeLoading,
+    addItem: addGratitude,
+  } = useSupabaseDataWithAuthor<GratitudeEntry>({
+    table: 'gratitude_entries',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (entry: any) => transformGratitude(entry, user?.id),
+  });
+
   const [showCheckInForm, setShowCheckInForm] = useState(false);
   const [gratitudeText, setGratitudeText] = useState('');
   const [selectedMood, setSelectedMood] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
-  
+  const [submitting, setSubmitting] = useState(false);
+
   // Check-in form state
   const [connectionRating, setConnectionRating] = useState(3);
   const [partnerHighlight, setPartnerHighlight] = useState('');
@@ -43,40 +90,39 @@ const CheckIns = () => {
   const [overallMood, setOverallMood] = useState(3);
 
   const currentWeek = getCurrentWeekString();
-  const hasCompletedThisWeek = checkIns.some(c => c.weekString === currentWeek);
+  const hasCompletedThisWeek = checkIns.some(c =>
+    c.weekString === currentWeek || (c as any).week_string === currentWeek
+  );
 
-  const handleAddGratitude = () => {
+  const loading = checkInsLoading || gratitudeLoading;
+
+  const handleAddGratitude = async () => {
     if (!gratitudeText.trim() || !selectedMood) return;
-    
-    const newEntry: GratitudeEntry = {
-      id: Date.now().toString(),
+
+    setSubmitting(true);
+    await addGratitude({
       content: gratitudeText,
       mood: selectedMood,
-      createdAt: new Date(),
-      author: 'me',
-    };
-    
-    setGratitudeEntries([newEntry, ...gratitudeEntries]);
+    } as any);
+
     setGratitudeText('');
     setSelectedMood('');
+    setSubmitting(false);
   };
 
-  const handleSubmitCheckIn = () => {
-    const newCheckIn: CheckInEntry = {
-      id: Date.now().toString(),
-      weekString: currentWeek,
-      createdAt: new Date(),
-      responses: {
-        connectionRating,
-        partnerHighlight,
-        unresolvedIssues,
-        gratitude,
-        nextWeekPlan,
-      },
-      overallMood,
-    };
-    
-    setCheckIns([newCheckIn, ...checkIns]);
+  const handleSubmitCheckIn = async () => {
+    setSubmitting(true);
+
+    await addCheckIn({
+      week_string: currentWeek,
+      connection_rating: connectionRating,
+      partner_highlight: partnerHighlight,
+      unresolved_issues: unresolvedIssues,
+      gratitude: gratitude,
+      next_week_plan: nextWeekPlan,
+      overall_mood: overallMood,
+    } as any);
+
     setShowCheckInForm(false);
     // Reset form
     setConnectionRating(3);
@@ -85,7 +131,31 @@ const CheckIns = () => {
     setGratitude('');
     setNextWeekPlan('');
     setOverallMood(3);
+    setSubmitting(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <Link to="/">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="font-romantic text-2xl font-semibold text-gradient">Check-ins & Gratitude</h1>
+              <p className="text-sm text-muted-foreground">Reflect on your relationship</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -110,7 +180,7 @@ const CheckIns = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="border-rose-light/50 overflow-hidden">
+          <Card className="border-rose-light/50 overflow-hidden relative">
             <div className="absolute top-0 right-0 w-32 h-32 gradient-romantic opacity-10 rounded-full -translate-y-1/2 translate-x-1/2" />
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -133,17 +203,16 @@ const CheckIns = () => {
                 >
                   {/* Question 1: Connection Rating */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">How connected did you feel this week?</label>
+                    <label className="text-sm font-medium break-words">How connected did you feel this week?</label>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((num) => (
                         <button
                           key={num}
                           onClick={() => setConnectionRating(num)}
-                          className={`w-10 h-10 rounded-full border-2 transition-all ${
-                            connectionRating >= num
+                          className={`w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full border-2 transition-all text-sm ${connectionRating >= num
                               ? 'bg-primary border-primary text-primary-foreground'
                               : 'border-border hover:border-primary/50'
-                          }`}
+                            }`}
                         >
                           {num}
                         </button>
@@ -153,7 +222,7 @@ const CheckIns = () => {
 
                   {/* Question 2 */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">What's one thing your partner did that made you happy?</label>
+                    <label className="text-sm font-medium break-words">What's one thing your partner did that made you happy?</label>
                     <Textarea
                       value={partnerHighlight}
                       onChange={(e) => setPartnerHighlight(e.target.value)}
@@ -164,7 +233,7 @@ const CheckIns = () => {
 
                   {/* Question 3 */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Is there anything unresolved between you?</label>
+                    <label className="text-sm font-medium break-words">Is there anything unresolved between you?</label>
                     <Textarea
                       value={unresolvedIssues}
                       onChange={(e) => setUnresolvedIssues(e.target.value)}
@@ -175,7 +244,7 @@ const CheckIns = () => {
 
                   {/* Question 4 */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">What are you grateful for in your relationship this week?</label>
+                    <label className="text-sm font-medium break-words">What are you grateful for in your relationship this week?</label>
                     <Textarea
                       value={gratitude}
                       onChange={(e) => setGratitude(e.target.value)}
@@ -186,7 +255,7 @@ const CheckIns = () => {
 
                   {/* Question 5 */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">What's one thing you'd like to do together next week?</label>
+                    <label className="text-sm font-medium break-words">What's one thing you'd like to do together next week?</label>
                     <Textarea
                       value={nextWeekPlan}
                       onChange={(e) => setNextWeekPlan(e.target.value)}
@@ -197,17 +266,16 @@ const CheckIns = () => {
 
                   {/* Overall Mood */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Overall relationship mood this week:</label>
-                    <div className="flex gap-2">
+                    <label className="text-sm font-medium break-words">Overall relationship mood this week:</label>
+                    <div className="flex gap-1.5 sm:gap-2">
                       {[1, 2, 3, 4, 5].map((num) => (
                         <button
                           key={num}
                           onClick={() => setOverallMood(num)}
-                          className={`flex-1 py-2 rounded-xl border-2 transition-all text-xl ${
-                            overallMood === num
+                          className={`flex-1 min-w-0 py-1.5 sm:py-2 rounded-xl border-2 transition-all text-lg sm:text-xl ${overallMood === num
                               ? 'bg-primary/10 border-primary'
                               : 'border-border hover:border-primary/50'
-                          }`}
+                            }`}
                         >
                           {num === 1 ? '😔' : num === 2 ? '😐' : num === 3 ? '🙂' : num === 4 ? '😊' : '🥰'}
                         </button>
@@ -220,14 +288,20 @@ const CheckIns = () => {
                       variant="outline"
                       onClick={() => setShowCheckInForm(false)}
                       className="flex-1"
+                      disabled={submitting}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSubmitCheckIn}
                       className="flex-1 gradient-romantic text-primary-foreground"
+                      disabled={submitting}
                     >
-                      Complete Check-in
+                      {submitting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Complete Check-in'
+                      )}
                     </Button>
                   </div>
                 </motion.div>
@@ -264,19 +338,18 @@ const CheckIns = () => {
                 placeholder="What are you grateful for today?"
                 className="bg-background"
               />
-              
-              <div className="flex items-center gap-2">
+
+              <div className="space-y-1.5">
                 <span className="text-sm text-muted-foreground">Mood:</span>
-                <div className="flex gap-1 flex-1">
+                <div className="grid grid-cols-6 gap-1">
                   {moodOptions.map((mood) => (
                     <button
                       key={mood.emoji}
                       onClick={() => setSelectedMood(mood.emoji)}
-                      className={`flex-1 py-2 text-xl rounded-lg transition-all ${
-                        selectedMood === mood.emoji
+                      className={`py-1.5 sm:py-2 text-lg sm:text-xl rounded-lg transition-all ${selectedMood === mood.emoji
                           ? 'bg-primary/20 scale-110'
                           : 'hover:bg-muted'
-                      }`}
+                        }`}
                       title={mood.label}
                     >
                       {mood.emoji}
@@ -287,10 +360,14 @@ const CheckIns = () => {
 
               <Button
                 onClick={handleAddGratitude}
-                disabled={!gratitudeText.trim() || !selectedMood}
+                disabled={!gratitudeText.trim() || !selectedMood || submitting}
                 className="w-full"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
                 Add Gratitude
               </Button>
             </CardContent>
@@ -346,7 +423,7 @@ const CheckIns = () => {
                 <Card key={checkIn.id} className="border-muted">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium">Week {checkIn.weekString}</span>
+                      <span className="text-sm font-medium">Week {checkIn.weekString || (checkIn as any).week_string}</span>
                       <span className="text-2xl">
                         {checkIn.overallMood === 1 ? '😔' : checkIn.overallMood === 2 ? '😐' : checkIn.overallMood === 3 ? '🙂' : checkIn.overallMood === 4 ? '😊' : '🥰'}
                       </span>

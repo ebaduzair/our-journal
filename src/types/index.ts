@@ -53,6 +53,7 @@ export interface Challenge {
 }
 
 export interface CompletedChallenge {
+  id: string;
   challengeId: string;
   completedAt: Date;
   notes?: string;
@@ -60,6 +61,7 @@ export interface CompletedChallenge {
 }
 
 export interface ChallengeStreak {
+  id: string;
   currentStreak: number;
   longestStreak: number;
   lastCompletedWeek: string; // ISO week string like "2025-W05"

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Heart, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Heart, RotateCcw, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loveLanguageQuestions, loveLanguageInfo } from '@/data/loveLanguageQuiz';
@@ -20,10 +21,24 @@ const languageColors: Record<LoveLanguage, string> = {
 };
 
 const LoveLanguageQuiz = () => {
-  const [results, setResults] = useLocalStorage<LoveLanguageResult[]>('love-language-results', []);
+  const { user } = useAuth();
+  const { data: results, loading, addItem, updateItem } = useSupabaseData<LoveLanguageResult>({
+    table: 'love_language_results',
+    transform: (entry: any) => ({
+      id: entry.id,
+      person: entry.user_id === user?.id ? 'me' as const : 'partner' as const,
+      user_id: entry.user_id,
+      scores: entry.scores,
+      primaryLanguage: entry.primary_language,
+      completedAt: new Date(entry.completed_at),
+    }),
+  });
+
   const [quizState, setQuizState] = useState<QuizState>('select-person');
   const [currentPerson, setCurrentPerson] = useState<'me' | 'partner'>('me');
   const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [latestResult, setLatestResult] = useState<LoveLanguageResult | null>(null);
   const [scores, setScores] = useState<Record<LoveLanguage, number>>({
     words: 0,
     acts: 0,
@@ -32,17 +47,18 @@ const LoveLanguageQuiz = () => {
     touch: 0,
   });
 
-  const myResult = results.find(r => r.person === 'me');
-  const partnerResult = results.find(r => r.person === 'partner');
+  const myResult = latestResult?.person === 'me' ? latestResult : results.find(r => r.person === 'me' || (r as any).user_id === user?.id);
+  const partnerResult = latestResult?.person === 'partner' ? latestResult : results.find(r => r.person === 'partner' || ((r as any).user_id && (r as any).user_id !== user?.id));
 
   const startQuiz = (person: 'me' | 'partner') => {
     setCurrentPerson(person);
     setCurrentQuestion(0);
     setScores({ words: 0, acts: 0, gifts: 0, time: 0, touch: 0 });
+    setLatestResult(null);
     setQuizState('quiz');
   };
 
-  const handleAnswer = (language: LoveLanguage) => {
+  const handleAnswer = async (language: LoveLanguage) => {
     const newScores = { ...scores, [language]: scores[language] + 1 };
     setScores(newScores);
 
@@ -50,27 +66,38 @@ const LoveLanguageQuiz = () => {
       setCurrentQuestion(currentQuestion + 1);
     } else {
       // Quiz complete - calculate result
+      setSubmitting(true);
       const primaryLanguage = (Object.entries(newScores) as [LoveLanguage, number][])
         .sort((a, b) => b[1] - a[1])[0][0];
 
-      const newResult: LoveLanguageResult = {
+      // Immediately set result for display (don't wait for Supabase)
+      const displayResult: LoveLanguageResult = {
+        id: 'temp-' + Date.now(),
         person: currentPerson,
         scores: newScores,
         primaryLanguage,
         completedAt: new Date(),
       };
-
-      // Update or add result
-      const existingIndex = results.findIndex(r => r.person === currentPerson);
-      if (existingIndex >= 0) {
-        const updated = [...results];
-        updated[existingIndex] = newResult;
-        setResults(updated);
-      } else {
-        setResults([...results, newResult]);
-      }
-
+      setLatestResult(displayResult);
+      setSubmitting(false);
       setQuizState('results');
+
+      // Save to Supabase in background
+      const resultData = {
+        scores: newScores,
+        primary_language: primaryLanguage,
+        user_id: currentPerson === 'me' ? user?.id : 'partner',
+      } as any;
+
+      const existingResult = currentPerson === 'me'
+        ? results.find(r => r.person === 'me' || (r as any).user_id === user?.id)
+        : results.find(r => r.person === 'partner' || ((r as any).user_id && (r as any).user_id !== user?.id));
+
+      if (existingResult) {
+        updateItem(existingResult.id, resultData);
+      } else {
+        addItem(resultData);
+      }
     }
   };
 
@@ -84,7 +111,30 @@ const LoveLanguageQuiz = () => {
   };
 
   const question = loveLanguageQuestions[currentQuestion];
-  const currentResult = results.find(r => r.person === currentPerson);
+  // Use latestResult first (just completed), then fall back to Supabase data
+  const currentResult = latestResult?.person === currentPerson ? latestResult : results.find(r => {
+    if (currentPerson === 'me') return r.person === 'me' || (r as any).user_id === user?.id;
+    return r.person === 'partner' || ((r as any).user_id && (r as any).user_id !== user?.id);
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <Link to="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button></Link>
+            <div>
+              <h1 className="font-romantic text-2xl font-semibold text-gradient">Love Language Quiz</h1>
+              <p className="text-sm text-muted-foreground">Discover how you give and receive love</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -117,7 +167,7 @@ const LoveLanguageQuiz = () => {
               {(myResult || partnerResult) && (
                 <div className="space-y-4">
                   <h3 className="font-medium text-muted-foreground">Your Results</h3>
-                  
+
                   {myResult && (
                     <Card className="border-primary/30">
                       <CardHeader className="pb-2">
@@ -183,8 +233,8 @@ const LoveLanguageQuiz = () => {
                 <h3 className="font-medium text-muted-foreground">
                   {myResult || partnerResult ? 'Retake Quiz' : 'Take the Quiz'}
                 </h3>
-                
-                <Card 
+
+                <Card
                   className="cursor-pointer hover:shadow-md transition-shadow border-primary/30"
                   onClick={() => startQuiz('me')}
                 >
@@ -200,7 +250,7 @@ const LoveLanguageQuiz = () => {
                   </CardContent>
                 </Card>
 
-                <Card 
+                <Card
                   className="cursor-pointer hover:shadow-md transition-shadow border-coral/30"
                   onClick={() => startQuiz('partner')}
                 >
@@ -269,6 +319,7 @@ const LoveLanguageQuiz = () => {
                       variant="outline"
                       className="w-full py-6 h-auto text-left justify-start"
                       onClick={() => handleAnswer(question.optionA.language)}
+                      disabled={submitting}
                     >
                       <span className="text-xl mr-3">A</span>
                       <span className="flex-1">{question.optionA.text}</span>
@@ -278,6 +329,7 @@ const LoveLanguageQuiz = () => {
                       variant="outline"
                       className="w-full py-6 h-auto text-left justify-start"
                       onClick={() => handleAnswer(question.optionB.language)}
+                      disabled={submitting}
                     >
                       <span className="text-xl mr-3">B</span>
                       <span className="flex-1">{question.optionB.text}</span>

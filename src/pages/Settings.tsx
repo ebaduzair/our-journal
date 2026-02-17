@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, LogOut, Copy, Check, Heart, User, Users } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { Settings as SettingsIcon, LogOut, Copy, Check, Heart, User, Users, Sun, Moon, Monitor, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,6 +13,13 @@ const Settings = () => {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const { theme, setTheme } = useTheme();
+
+    const themeOptions = [
+        { value: 'light', label: 'Light', icon: Sun },
+        { value: 'dark', label: 'Dark', icon: Moon },
+        { value: 'system', label: 'System', icon: Monitor },
+    ] as const;
 
     const handleCopyCode = () => {
         if (profile?.couple_code) {
@@ -141,11 +149,59 @@ const Settings = () => {
                     )}
                 </motion.div>
 
+                {/* Appearance Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="p-4 rounded-2xl bg-card shadow-card"
+                >
+                    <div className="flex items-center gap-2 mb-4">
+                        <Palette className="w-4 h-4 text-primary" />
+                        <h2 className="font-semibold text-foreground">Appearance</h2>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                        {themeOptions.map((option) => {
+                            const Icon = option.icon;
+                            const isActive = theme === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    onClick={() => setTheme(option.value)}
+                                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${isActive
+                                            ? 'border-primary bg-primary/10 shadow-soft'
+                                            : 'border-border/50 bg-background hover:border-primary/30 hover:bg-primary/5'
+                                        }`}
+                                >
+                                    <Icon
+                                        className={`w-5 h-5 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'
+                                            }`}
+                                    />
+                                    <span
+                                        className={`text-xs font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'
+                                            }`}
+                                    >
+                                        {option.label}
+                                    </span>
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="activeTheme"
+                                            className="absolute inset-0 rounded-xl border-2 border-primary"
+                                            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                                        />
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+
                 {/* Logout Section */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
+                    transition={{ delay: 0.35 }}
                     className="p-4 rounded-2xl bg-card shadow-card"
                 >
                     <div className="flex items-center gap-2 mb-4">
@@ -179,7 +235,7 @@ const Settings = () => {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
+                    transition={{ delay: 0.45 }}
                     className="text-center py-6"
                 >
                     <Heart className="w-6 h-6 mx-auto text-primary fill-primary mb-2" />

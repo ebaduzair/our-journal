@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Trophy, Check, RefreshCw, Star, ChevronDown, ChevronUp } from 'lucide-react';
+import { Flame, Trophy, Check, RefreshCw, Star, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { challengeDatabase, getCategoryColor, getCategoryLabel } from '@/data/challenges';
 import { CompletedChallenge, ChallengeStreak, Challenge } from '@/types';
 import { format, startOfWeek, getISOWeek, getYear } from 'date-fns';
@@ -16,20 +17,58 @@ import { format, startOfWeek, getISOWeek, getYear } from 'date-fns';
 const getWeekString = (date: Date) => `${getYear(date)}-W${String(getISOWeek(date)).padStart(2, '0')}`;
 
 export default function Challenges() {
-  const [completedChallenges, setCompletedChallenges] = useLocalStorage<CompletedChallenge[]>('couple-completed-challenges', []);
-  const [streak, setStreak] = useLocalStorage<ChallengeStreak>('couple-challenge-streak', {
-    currentStreak: 0,
-    longestStreak: 0,
-    lastCompletedWeek: '',
+  const { user } = useAuth();
+
+  // Fetch completed challenges from Supabase
+  const { data: completedChallenges, loading: completedLoading, addItem: addCompletedItem } = useSupabaseData<CompletedChallenge>({
+    table: 'completed_challenges',
+    orderBy: { column: 'completed_at', ascending: false },
+    transform: (entry: any) => ({
+      id: entry.id,
+      challengeId: entry.challenge_id,
+      completedAt: new Date(entry.completed_at),
+      notes: entry.notes || undefined,
+      rating: entry.rating,
+    }),
   });
-  const [weeklyChallenge, setWeeklyChallenge] = useLocalStorage<{ challengeId: string; weekString: string } | null>('couple-weekly-challenge', null);
+
+  // Fetch streak from Supabase
+  const { data: streakData, loading: streakLoading, addItem: addStreakItem, updateItem: updateStreakItem } = useSupabaseData<ChallengeStreak & { id: string }>({
+    table: 'challenge_streaks',
+    transform: (entry: any) => ({
+      id: entry.id,
+      currentStreak: entry.current_streak ?? 0,
+      longestStreak: entry.longest_streak ?? 0,
+      lastCompletedWeek: entry.last_completed_week ?? '',
+    }),
+  });
+
+  // Fetch weekly challenge from Supabase
+  const { data: weeklyData, loading: weeklyLoading, addItem: addWeeklyItem, updateItem: updateWeeklyItem } = useSupabaseData<{ id: string; challengeId: string; weekString: string }>({
+    table: 'weekly_challenges',
+    transform: (entry: any) => ({
+      id: entry.id,
+      challengeId: entry.challenge_id,
+      weekString: entry.week_string,
+    }),
+  });
+
+  const streak: ChallengeStreak = streakData.length > 0
+    ? streakData[0]
+    : { id: '', currentStreak: 0, longestStreak: 0, lastCompletedWeek: '' };
+
+  const streakId = streakData.length > 0 ? (streakData[0] as any).id : null;
+
+  const weeklyChallenge = weeklyData.length > 0 ? weeklyData[0] : null;
 
   const [selectedCategory, setSelectedCategory] = useState<Challenge['category'] | 'all'>('all');
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
   const [completionRating, setCompletionRating] = useState(5);
   const [showHistory, setShowHistory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
+  const loading = completedLoading || streakLoading || weeklyLoading;
   const currentWeekString = getWeekString(new Date());
 
   // Get or generate weekly challenge
@@ -42,9 +81,22 @@ export default function Challenges() {
     const availableChallenges = challengeDatabase.filter(c => !completedIds.includes(c.id));
     const pool = availableChallenges.length > 0 ? availableChallenges : challengeDatabase;
     const randomChallenge = pool[Math.floor(Math.random() * pool.length)];
-    setWeeklyChallenge({ challengeId: randomChallenge.id, weekString: currentWeekString });
+
+    // Save to Supabase (fire and forget)
+    if (weeklyChallenge) {
+      updateWeeklyItem(weeklyChallenge.id, {
+        challenge_id: randomChallenge.id,
+        week_string: currentWeekString,
+      } as any);
+    } else if (!loading) {
+      addWeeklyItem({
+        challenge_id: randomChallenge.id,
+        week_string: currentWeekString,
+      } as any);
+    }
+
     return randomChallenge;
-  }, [weeklyChallenge, currentWeekString, completedChallenges, setWeeklyChallenge]);
+  }, [weeklyChallenge, currentWeekString, completedChallenges, loading]);
 
   const isCurrentChallengeCompleted = completedChallenges.some(
     c => c.challengeId === currentChallenge?.id && getWeekString(new Date(c.completedAt)) === currentWeekString
@@ -61,38 +113,53 @@ export default function Challenges() {
 
   const totalCompleted = completedChallenges.length;
 
-  const handleCompleteChallenge = () => {
+  const handleCompleteChallenge = async () => {
     if (!currentChallenge) return;
+    setSubmitting(true);
 
-    const newCompleted: CompletedChallenge = {
-      challengeId: currentChallenge.id,
-      completedAt: new Date(),
-      notes: completionNotes || undefined,
-      rating: completionRating,
-    };
+    try {
+      // Add completed challenge to Supabase
+      await addCompletedItem({
+        challenge_id: currentChallenge.id,
+        notes: completionNotes || undefined,
+        rating: completionRating,
+      } as any);
 
-    setCompletedChallenges([...completedChallenges, newCompleted]);
-
-    // Update streak
-    const newStreak = { ...streak };
-    if (streak.lastCompletedWeek === currentWeekString) {
-      // Already completed this week
-    } else {
-      const lastWeekNum = streak.lastCompletedWeek ? parseInt(streak.lastCompletedWeek.split('-W')[1]) : 0;
-      const currentWeekNum = getISOWeek(new Date());
-      const lastYear = streak.lastCompletedWeek ? parseInt(streak.lastCompletedWeek.split('-W')[0]) : 0;
-      const currentYear = getYear(new Date());
-
-      if ((currentYear === lastYear && currentWeekNum === lastWeekNum + 1) ||
-        (currentYear === lastYear + 1 && lastWeekNum >= 52 && currentWeekNum === 1)) {
-        newStreak.currentStreak += 1;
+      // Update streak
+      const newStreak = { ...streak };
+      if (streak.lastCompletedWeek === currentWeekString) {
+        // Already completed this week
       } else {
-        newStreak.currentStreak = 1;
+        const lastWeekNum = streak.lastCompletedWeek ? parseInt(streak.lastCompletedWeek.split('-W')[1]) : 0;
+        const currentWeekNum = getISOWeek(new Date());
+        const lastYear = streak.lastCompletedWeek ? parseInt(streak.lastCompletedWeek.split('-W')[0]) : 0;
+        const currentYear = getYear(new Date());
+
+        if ((currentYear === lastYear && currentWeekNum === lastWeekNum + 1) ||
+          (currentYear === lastYear + 1 && lastWeekNum >= 52 && currentWeekNum === 1)) {
+          newStreak.currentStreak += 1;
+        } else {
+          newStreak.currentStreak = 1;
+        }
+        newStreak.longestStreak = Math.max(newStreak.longestStreak, newStreak.currentStreak);
+        newStreak.lastCompletedWeek = currentWeekString;
       }
-      newStreak.longestStreak = Math.max(newStreak.longestStreak, newStreak.currentStreak);
-      newStreak.lastCompletedWeek = currentWeekString;
+
+      // Save streak to Supabase
+      const streakPayload = {
+        current_streak: newStreak.currentStreak,
+        longest_streak: newStreak.longestStreak,
+        last_completed_week: newStreak.lastCompletedWeek,
+      } as any;
+
+      if (streakId) {
+        await updateStreakItem(streakId, streakPayload);
+      } else {
+        await addStreakItem(streakPayload);
+      }
+    } finally {
+      setSubmitting(false);
     }
-    setStreak(newStreak);
 
     setShowCompleteDialog(false);
     setCompletionNotes('');
@@ -107,7 +174,18 @@ export default function Challenges() {
     const pool = availableChallenges.length > 0 ? availableChallenges : challengeDatabase.filter(c => c.id !== currentChallenge?.id);
     if (pool.length === 0) return;
     const randomChallenge = pool[Math.floor(Math.random() * pool.length)];
-    setWeeklyChallenge({ challengeId: randomChallenge.id, weekString: currentWeekString });
+
+    if (weeklyChallenge) {
+      updateWeeklyItem(weeklyChallenge.id, {
+        challenge_id: randomChallenge.id,
+        week_string: currentWeekString,
+      } as any);
+    } else {
+      addWeeklyItem({
+        challenge_id: randomChallenge.id,
+        week_string: currentWeekString,
+      } as any);
+    }
   };
 
   const completedHistory = useMemo(() => {
@@ -121,6 +199,17 @@ export default function Challenges() {
   }, [completedChallenges]);
 
   const categories: (Challenge['category'] | 'all')[] = ['all', 'communication', 'adventure', 'romance', 'fun'];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pb-24 overflow-x-hidden">
+        <PageHeader title="Challenges" subtitle="Weekly fun to keep the spark alive" emoji="🔥" />
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-24 overflow-x-hidden">
@@ -378,8 +467,13 @@ export default function Challenges() {
             <Button
               onClick={handleCompleteChallenge}
               className="w-full gradient-romantic text-primary-foreground"
+              disabled={submitting}
             >
-              <Check className="w-4 h-4 mr-2" />
+              {submitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4 mr-2" />
+              )}
               Mark as Complete
             </Button>
           </div>

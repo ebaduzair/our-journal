@@ -62,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearTimeout(timeoutId);
 
             if (!response.ok) {
+                console.error('[Profile] Fetch failed:', response.status);
                 setLoading(false);
                 return;
             }
@@ -69,10 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = await response.json();
 
             if (Array.isArray(data) && data.length > 0) {
+                console.log('[Profile] Loaded with couple_code:', data[0].couple_code ? 'YES' : 'NO');
                 setProfile(data[0]);
+            } else {
+                console.log('[Profile] No profile found in DB');
             }
         } catch (error) {
-            // Silent fail - profile will be null
+            console.error('[Profile] Fetch error:', (error as Error).message);
         } finally {
             setLoading(false);
         }

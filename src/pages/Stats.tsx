@@ -1,35 +1,68 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, Flame, Calendar, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Heart, Flame, Calendar, TrendingUp, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import type { LoveNote, LoveReason, SpecialEvent, CompletedChallenge, ChallengeStreak, CheckInEntry, GratitudeEntry, LoveLanguageResult } from '@/types';
 import { differenceInDays, format, subMonths, startOfMonth, endOfMonth, isWithinInterval, getISOWeek, getYear } from 'date-fns';
 import { loveLanguageInfo } from '@/data/loveLanguageQuiz';
 
 const Stats = () => {
-  const [notes] = useLocalStorage<LoveNote[]>('love-notes', []);
-  const [reasons] = useLocalStorage<LoveReason[]>('love-reasons', []);
-  const [events] = useLocalStorage<SpecialEvent[]>('special-events', []);
-  const [completedChallenges] = useLocalStorage<CompletedChallenge[]>('completed-challenges', []);
-  const [streak] = useLocalStorage<ChallengeStreak>('challenge-streak', { currentStreak: 0, longestStreak: 0, lastCompletedWeek: '' });
-  const [checkIns] = useLocalStorage<CheckInEntry[]>('check-ins', []);
-  const [gratitudeEntries] = useLocalStorage<GratitudeEntry[]>('gratitude-entries', []);
-  const [loveLanguageResults] = useLocalStorage<LoveLanguageResult[]>('love-language-results', []);
+  const { user } = useAuth();
+
+  // Fetch real data from Supabase (same pattern as Index.tsx and other pages)
+  const { data: notes, loading: notesLoading } = useSupabaseData<LoveNote>({ table: 'love_notes' });
+  const { data: reasons, loading: reasonsLoading } = useSupabaseData<LoveReason>({ table: 'love_reasons' });
+  const { data: events, loading: eventsLoading } = useSupabaseData<SpecialEvent>({
+    table: 'special_events',
+    orderBy: { column: 'date', ascending: true },
+  });
+  const { data: checkIns, loading: checkInsLoading } = useSupabaseData<CheckInEntry>({ table: 'check_in_entries' });
+  const { data: loveLanguageResults, loading: loveLanguageLoading } = useSupabaseData<LoveLanguageResult>({ table: 'love_language_results' });
+
+  // Challenges & streaks now from Supabase
+  const { data: completedChallenges, loading: challengesLoading } = useSupabaseData<CompletedChallenge>({
+    table: 'completed_challenges',
+    transform: (entry: any) => ({
+      id: entry.id,
+      challengeId: entry.challenge_id,
+      completedAt: new Date(entry.completed_at),
+      notes: entry.notes || undefined,
+      rating: entry.rating,
+    }),
+  });
+  const { data: streakData, loading: streakLoading } = useSupabaseData<ChallengeStreak & { id: string }>({
+    table: 'challenge_streaks',
+    transform: (entry: any) => ({
+      id: entry.id,
+      currentStreak: entry.current_streak ?? 0,
+      longestStreak: entry.longest_streak ?? 0,
+      lastCompletedWeek: entry.last_completed_week ?? '',
+    }),
+  });
+  const streak: ChallengeStreak = streakData.length > 0
+    ? streakData[0]
+    : { id: '', currentStreak: 0, longestStreak: 0, lastCompletedWeek: '' };
+
+  // Gratitude entries now in Supabase (same as CheckIns.tsx)
+  const { data: gratitudeEntries, loading: gratitudeLoading } = useSupabaseData<GratitudeEntry>({ table: 'gratitude_entries' });
+
+  const loading = notesLoading || reasonsLoading || eventsLoading || checkInsLoading || loveLanguageLoading || gratitudeLoading || challengesLoading || streakLoading;
 
   // Calculate days together from first event or default
-  const firstEvent = events.length > 0 
+  const firstEvent = events.length > 0
     ? events.reduce((earliest, e) => new Date(e.date) < new Date(earliest.date) ? e : earliest)
     : null;
-  const daysTogether = firstEvent 
+  const daysTogether = firstEvent
     ? Math.abs(differenceInDays(new Date(), new Date(firstEvent.date)))
     : 0;
 
   // Calculate total hearts
-  const totalHearts = notes.reduce((sum, n) => sum + n.hearts, 0) + 
-                      reasons.reduce((sum, r) => sum + r.hearts, 0);
+  const totalHearts = notes.reduce((sum, n) => sum + (n.hearts || 0), 0) +
+    reasons.reduce((sum, r) => sum + (r.hearts || 0), 0);
 
   // Calculate monthly activity data (last 6 months)
   const getMonthlyData = () => {
@@ -38,18 +71,21 @@ const Stats = () => {
       const monthDate = subMonths(new Date(), i);
       const start = startOfMonth(monthDate);
       const end = endOfMonth(monthDate);
-      
-      const notesCount = notes.filter(n => 
-        isWithinInterval(new Date(n.createdAt), { start, end })
-      ).length;
-      
-      const reasonsCount = reasons.filter(r => 
-        isWithinInterval(new Date(r.createdAt), { start, end })
-      ).length;
-      
-      const challengesCount = completedChallenges.filter(c => 
-        isWithinInterval(new Date(c.completedAt), { start, end })
-      ).length;
+
+      const notesCount = notes.filter(n => {
+        const d = n.createdAt instanceof Date ? n.createdAt : new Date(n.createdAt);
+        return isWithinInterval(d, { start, end });
+      }).length;
+
+      const reasonsCount = reasons.filter(r => {
+        const d = r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt);
+        return isWithinInterval(d, { start, end });
+      }).length;
+
+      const challengesCount = completedChallenges.filter(c => {
+        const d = c.completedAt instanceof Date ? c.completedAt : new Date(c.completedAt);
+        return isWithinInterval(d, { start, end });
+      }).length;
 
       months.push({
         month: format(monthDate, 'MMM'),
@@ -66,41 +102,43 @@ const Stats = () => {
   // Calculate relationship score (gamified)
   const calculateRelationshipScore = () => {
     let score = 0;
-    
+
     // Points for notes (max 20)
     score += Math.min(notes.length * 2, 20);
-    
+
     // Points for reasons (max 20)
     score += Math.min(reasons.length * 2, 20);
-    
+
     // Points for challenge streak (max 20)
     score += Math.min(streak.currentStreak * 5, 20);
-    
+
     // Points for check-ins (max 20)
     const currentWeek = `${getYear(new Date())}-W${String(getISOWeek(new Date())).padStart(2, '0')}`;
     const recentCheckIns = checkIns.filter(c => {
-      const weekNum = parseInt(c.weekString.split('-W')[1]);
+      const weekStr = (c as any).week_string || c.weekString;
+      if (!weekStr) return false;
+      const weekNum = parseInt(weekStr.split('-W')[1]);
       const currentWeekNum = parseInt(currentWeek.split('-W')[1]);
       return currentWeekNum - weekNum <= 4;
     }).length;
     score += Math.min(recentCheckIns * 5, 20);
-    
+
     // Points for gratitude entries (max 20)
     score += Math.min(gratitudeEntries.length, 20);
-    
+
     return Math.min(score, 100);
   };
 
   const relationshipScore = calculateRelationshipScore();
 
   // Get love language compatibility
-  const myLanguage = loveLanguageResults.find(r => r.person === 'me');
-  const partnerLanguage = loveLanguageResults.find(r => r.person === 'partner');
+  const myLanguage = loveLanguageResults.find(r => (r as any).user_id === user?.id || r.person === 'me');
+  const partnerLanguage = loveLanguageResults.find(r => (r as any).user_id !== user?.id && r.person !== 'me');
 
   // Calculate average challenge rating
   const avgRating = completedChallenges.length > 0
-    ? (completedChallenges.filter(c => c.rating).reduce((sum, c) => sum + (c.rating || 0), 0) / 
-       completedChallenges.filter(c => c.rating).length).toFixed(1)
+    ? (completedChallenges.filter(c => c.rating).reduce((sum, c) => sum + (c.rating || 0), 0) /
+      completedChallenges.filter(c => c.rating).length).toFixed(1)
     : 'N/A';
 
   const container = {
@@ -115,6 +153,29 @@ const Stats = () => {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 },
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <Link to="/">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="font-romantic text-2xl font-semibold text-gradient">Relationship Stats</h1>
+              <p className="text-sm text-muted-foreground">Your love by the numbers</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -154,7 +215,7 @@ const Stats = () => {
                 </motion.div>
                 <p className="text-sm opacity-90">Relationship Score</p>
               </div>
-              
+
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div>
                   <p className="text-2xl font-bold">{daysTogether}</p>
@@ -283,22 +344,22 @@ const Stats = () => {
                   {myLanguage && (
                     <div className="text-center p-3 rounded-xl bg-primary/5">
                       <span className="text-3xl block mb-1">
-                        {loveLanguageInfo[myLanguage.primaryLanguage].emoji}
+                        {loveLanguageInfo[myLanguage.primaryLanguage]?.emoji}
                       </span>
                       <p className="text-xs text-muted-foreground">Me</p>
                       <p className="text-sm font-medium truncate">
-                        {loveLanguageInfo[myLanguage.primaryLanguage].name}
+                        {loveLanguageInfo[myLanguage.primaryLanguage]?.name}
                       </p>
                     </div>
                   )}
                   {partnerLanguage && (
                     <div className="text-center p-3 rounded-xl bg-coral/5">
                       <span className="text-3xl block mb-1">
-                        {loveLanguageInfo[partnerLanguage.primaryLanguage].emoji}
+                        {loveLanguageInfo[partnerLanguage.primaryLanguage]?.emoji}
                       </span>
                       <p className="text-xs text-muted-foreground">Partner</p>
                       <p className="text-sm font-medium truncate">
-                        {loveLanguageInfo[partnerLanguage.primaryLanguage].name}
+                        {loveLanguageInfo[partnerLanguage.primaryLanguage]?.name}
                       </p>
                     </div>
                   )}
@@ -306,8 +367,8 @@ const Stats = () => {
                 {!myLanguage || !partnerLanguage ? (
                   <Link to="/love-quiz">
                     <Button variant="outline" className="w-full mt-3" size="sm">
-                      {!myLanguage && !partnerLanguage 
-                        ? 'Take the Quiz' 
+                      {!myLanguage && !partnerLanguage
+                        ? 'Take the Quiz'
                         : `Complete ${!myLanguage ? 'your' : "partner's"} quiz`}
                     </Button>
                   </Link>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Brain, Heart, BookOpen, MessageCircle, Wind, 
+import {
+  Brain, Heart, BookOpen, MessageCircle, Wind,
   Plus, ChevronDown, ChevronUp, Check, Sparkles,
-  RefreshCw, ArrowRight, Clock, X
+  RefreshCw, ArrowRight, Clock, X, Loader2
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -13,29 +13,71 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseDataWithAuthor, useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { WorryEntry, ReassuranceCard, RealityCheckAnswer, CalmSession } from '@/types';
-import { 
-  breathingExercises, 
-  groundingExercises, 
-  coupleAffirmations, 
+import {
+  breathingExercises,
+  groundingExercises,
+  coupleAffirmations,
   realityCheckQuestions,
   reframePrompts,
-  defaultReassurances 
+  defaultReassurances
 } from '@/data/mindfulMoments';
 import { format } from 'date-fns';
 
 const MindfulMoments = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('worry');
-  
-  // Local storage for all data
-  const [worries, setWorries] = useLocalStorage<WorryEntry[]>('worry-entries', []);
-  const [reassurances, setReassurances] = useLocalStorage<ReassuranceCard[]>('reassurance-cards', []);
-  const [realityChecks, setRealityChecks] = useLocalStorage<RealityCheckAnswer[]>('reality-checks', []);
-  const [calmSessions, setCalmSessions] = useLocalStorage<CalmSession[]>('calm-sessions', []);
-  
+
+  // Fetch data from Supabase
+  const { data: worries, loading: worriesLoading, addItem: addWorryItem, updateItem: updateWorryItem } = useSupabaseDataWithAuthor<WorryEntry>({
+    table: 'worry_entries',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (entry: any) => ({
+      id: entry.id,
+      worry: entry.worry,
+      reframe: entry.reframe,
+      createdAt: new Date(entry.created_at),
+      author: entry.author_id === user?.id ? 'me' as const : 'partner' as const,
+      isResolved: entry.is_resolved ?? false,
+    }),
+  });
+  const { data: reassurances, loading: reassurancesLoading, addItem: addReassuranceItem } = useSupabaseDataWithAuthor<ReassuranceCard>({
+    table: 'reassurance_cards',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (entry: any) => ({
+      id: entry.id,
+      message: entry.message,
+      author: entry.author_id === user?.id ? 'me' as const : 'partner' as const,
+      createdAt: new Date(entry.created_at),
+    }),
+  });
+  const { data: realityChecks, loading: realityLoading, addItem: addRealityItem } = useSupabaseDataWithAuthor<RealityCheckAnswer>({
+    table: 'reality_check_answers',
+    orderBy: { column: 'created_at', ascending: false },
+    transform: (entry: any) => ({
+      id: entry.id,
+      worry: entry.worry,
+      answers: {
+        evidence: entry.evidence || '',
+        likelihood: entry.likelihood || 3,
+        worstCase: entry.worst_case || '',
+        copingPlan: entry.coping_plan || '',
+      },
+      createdAt: new Date(entry.created_at),
+      author: entry.author_id === user?.id ? 'me' as const : 'partner' as const,
+    }),
+  });
+  const { data: calmSessions, loading: calmLoading, addItem: addCalmItem } = useSupabaseData<CalmSession>({
+    table: 'calm_sessions',
+    orderBy: { column: 'completed_at', ascending: false },
+  });
+
+  const loading = worriesLoading || reassurancesLoading || realityLoading || calmLoading;
+
   // UI state
   const [showWorryForm, setShowWorryForm] = useState(false);
   const [showReassuranceForm, setShowReassuranceForm] = useState(false);
@@ -43,13 +85,13 @@ const MindfulMoments = () => {
   const [showBreathingExercise, setShowBreathingExercise] = useState<string | null>(null);
   const [showGrounding, setShowGrounding] = useState<string | null>(null);
   const [expandedWorry, setExpandedWorry] = useState<string | null>(null);
-  
+
   // Form state
   const [newWorry, setNewWorry] = useState('');
   const [newReframe, setNewReframe] = useState('');
   const [newReassurance, setNewReassurance] = useState('');
   const [currentReframePrompt, setCurrentReframePrompt] = useState(reframePrompts[0]);
-  
+
   // Reality check form
   const [realityWorry, setRealityWorry] = useState('');
   const [realityEvidence, setRealityEvidence] = useState('');
@@ -77,64 +119,51 @@ const MindfulMoments = () => {
     setCurrentAffirmation(newAffirmation);
   };
 
-  const addWorry = () => {
+  const addWorry = async () => {
     if (!newWorry.trim() || !newReframe.trim()) return;
-    
-    const entry: WorryEntry = {
-      id: Date.now().toString(),
+
+    await addWorryItem({
       worry: newWorry.trim(),
       reframe: newReframe.trim(),
-      createdAt: new Date(),
-      author: 'me',
-      isResolved: false,
-    };
-    
-    setWorries([entry, ...worries]);
+      is_resolved: false,
+    } as any);
+
     setNewWorry('');
     setNewReframe('');
     setShowWorryForm(false);
     toast({ title: "Worry reframed! 💪", description: "You're doing great facing your thoughts." });
   };
 
-  const toggleWorryResolved = (id: string) => {
-    setWorries(worries.map(w => 
-      w.id === id ? { ...w, isResolved: !w.isResolved } : w
-    ));
+  const toggleWorryResolved = async (id: string) => {
+    const worry = worries.find(w => w.id === id);
+    if (worry) {
+      await updateWorryItem(id, { is_resolved: !(worry as any).isResolved } as any);
+    }
   };
 
-  const addReassurance = () => {
+  const addReassurance = async () => {
     if (!newReassurance.trim()) return;
-    
-    const card: ReassuranceCard = {
-      id: Date.now().toString(),
+
+    await addReassuranceItem({
       message: newReassurance.trim(),
-      author: 'me',
-      createdAt: new Date(),
-    };
-    
-    setReassurances([card, ...reassurances]);
+    } as any);
+
     setNewReassurance('');
     setShowReassuranceForm(false);
     toast({ title: "Reassurance saved! 💝", description: "Ready for when it's needed most." });
   };
 
-  const submitRealityCheck = () => {
+  const submitRealityCheck = async () => {
     if (!realityWorry.trim()) return;
-    
-    const check: RealityCheckAnswer = {
-      id: Date.now().toString(),
+
+    await addRealityItem({
       worry: realityWorry.trim(),
-      answers: {
-        evidence: realityEvidence.trim(),
-        likelihood: realityLikelihood[0],
-        worstCase: realityWorstCase.trim(),
-        copingPlan: realityCopingPlan.trim(),
-      },
-      createdAt: new Date(),
-      author: 'me',
-    };
-    
-    setRealityChecks([check, ...realityChecks]);
+      evidence: realityEvidence.trim(),
+      likelihood: realityLikelihood[0],
+      worst_case: realityWorstCase.trim(),
+      coping_plan: realityCopingPlan.trim(),
+    } as any);
+
     setRealityWorry('');
     setRealityEvidence('');
     setRealityLikelihood([3]);
@@ -147,32 +176,29 @@ const MindfulMoments = () => {
   const startBreathingExercise = (exerciseId: string) => {
     const exercise = breathingExercises.find(e => e.id === exerciseId);
     if (!exercise) return;
-    
+
     setShowBreathingExercise(exerciseId);
     setBreathingPhase(0);
     setBreathingComplete(false);
-    
+
     let phase = 0;
     const timer = setInterval(() => {
       phase = (phase + 1) % exercise.instructions.length;
       setBreathingPhase(phase);
     }, 4000);
-    
+
     setBreathingTimer(timer);
-    
+
     // Complete after duration
     setTimeout(() => {
       if (timer) clearInterval(timer);
       setBreathingComplete(true);
-      
-      const session: CalmSession = {
-        id: Date.now().toString(),
+
+      addCalmItem({
         type: 'breathing',
-        completedAt: new Date(),
-        durationSeconds: exercise.duration,
-        completedTogether: true,
-      };
-      setCalmSessions([session, ...calmSessions]);
+        duration_seconds: exercise.duration,
+        completed_together: true,
+      } as any);
     }, exercise.duration * 1000);
   };
 
@@ -184,21 +210,32 @@ const MindfulMoments = () => {
   };
 
   // Get all reassurances (user + defaults)
-  const allReassurances = reassurances.length > 0 
-    ? reassurances 
-    : defaultReassurances.map((msg, i) => ({ 
-        id: `default-${i}`, 
-        message: msg, 
-        author: 'partner' as const,
-        createdAt: new Date() 
-      }));
+  const allReassurances = reassurances.length > 0
+    ? reassurances
+    : defaultReassurances.map((msg, i) => ({
+      id: `default-${i}`,
+      message: msg,
+      author: 'partner' as const,
+      createdAt: new Date()
+    }));
 
   const randomReassurance = allReassurances[Math.floor(Math.random() * allReassurances.length)];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <PageHeader title="Mindful Moments" subtitle="Tools to calm overthinking together" emoji="🧘" />
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      <PageHeader 
-        title="Mindful Moments" 
+      <PageHeader
+        title="Mindful Moments"
         subtitle="Tools to calm overthinking together"
         emoji="🧘"
       />
@@ -271,7 +308,7 @@ const MindfulMoments = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {!showWorryForm ? (
-                  <Button 
+                  <Button
                     onClick={() => setShowWorryForm(true)}
                     className="w-full"
                     variant="outline"
@@ -294,7 +331,7 @@ const MindfulMoments = () => {
                         className="min-h-[80px]"
                       />
                     </div>
-                    
+
                     <div className="p-3 rounded-lg bg-muted/50">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-muted-foreground">Reframe prompt:</span>
@@ -304,7 +341,7 @@ const MindfulMoments = () => {
                       </div>
                       <p className="text-sm italic text-foreground">{currentReframePrompt}</p>
                     </div>
-                    
+
                     <div>
                       <label className="text-sm font-medium mb-1 block">Your reframed thought:</label>
                       <Textarea
@@ -314,7 +351,7 @@ const MindfulMoments = () => {
                         className="min-h-[80px]"
                       />
                     </div>
-                    
+
                     <div className="flex gap-2">
                       <Button onClick={addWorry} className="flex-1">
                         Save Entry
@@ -340,7 +377,7 @@ const MindfulMoments = () => {
                   >
                     <Card className={entry.isResolved ? 'opacity-60' : ''}>
                       <CardContent className="p-3">
-                        <div 
+                        <div
                           className="flex items-start justify-between cursor-pointer"
                           onClick={() => setExpandedWorry(expandedWorry === entry.id ? null : entry.id)}
                         >
@@ -363,7 +400,7 @@ const MindfulMoments = () => {
                             <ChevronDown className="w-4 h-4 text-muted-foreground" />
                           )}
                         </div>
-                        
+
                         <AnimatePresence>
                           {expandedWorry === entry.id && (
                             <motion.div
@@ -427,7 +464,7 @@ const MindfulMoments = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {!showReassuranceForm ? (
-                  <Button 
+                  <Button
                     onClick={() => setShowReassuranceForm(true)}
                     className="w-full"
                     variant="outline"
@@ -462,7 +499,7 @@ const MindfulMoments = () => {
                 {reassurances.length > 0 && (
                   <div className="grid grid-cols-1 gap-2 mt-4">
                     {reassurances.slice(0, 4).map((card) => (
-                      <div 
+                      <div
                         key={card.id}
                         className="p-3 rounded-lg bg-muted/50 border border-border"
                       >
@@ -489,7 +526,7 @@ const MindfulMoments = () => {
               </CardHeader>
               <CardContent>
                 {!showRealityCheck ? (
-                  <Button 
+                  <Button
                     onClick={() => setShowRealityCheck(true)}
                     className="w-full"
                   >
@@ -611,7 +648,7 @@ const MindfulMoments = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {breathingExercises.map((exercise) => (
-                  <div 
+                  <div
                     key={exercise.id}
                     className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => startBreathingExercise(exercise.id)}
@@ -645,7 +682,7 @@ const MindfulMoments = () => {
                 {groundingExercises.map((exercise) => (
                   <Dialog key={exercise.id}>
                     <DialogTrigger asChild>
-                      <div 
+                      <div
                         className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center justify-between">
@@ -712,7 +749,7 @@ const MindfulMoments = () => {
           {showBreathingExercise && (() => {
             const exercise = breathingExercises.find(e => e.id === showBreathingExercise);
             if (!exercise) return null;
-            
+
             return (
               <>
                 <DialogHeader>
@@ -720,7 +757,7 @@ const MindfulMoments = () => {
                     {exercise.emoji} {exercise.name}
                   </DialogTitle>
                 </DialogHeader>
-                
+
                 <div className="py-8">
                   {!breathingComplete ? (
                     <>
@@ -732,8 +769,8 @@ const MindfulMoments = () => {
                       >
                         <div className="w-32 h-32 mx-auto rounded-full gradient-romantic flex items-center justify-center">
                           <motion.div
-                            animate={{ 
-                              scale: breathingPhase === 0 || breathingPhase === 2 ? [1, 1.2] : [1.2, 1] 
+                            animate={{
+                              scale: breathingPhase === 0 || breathingPhase === 2 ? [1, 1.2] : [1.2, 1]
                             }}
                             transition={{ duration: 4, ease: "easeInOut" }}
                             className="w-24 h-24 rounded-full bg-primary-foreground/30"
@@ -759,7 +796,7 @@ const MindfulMoments = () => {
                     </motion.div>
                   )}
                 </div>
-                
+
                 <Button variant="outline" onClick={stopBreathingExercise}>
                   {breathingComplete ? 'Close' : 'Stop Early'}
                 </Button>

@@ -30,3 +30,6 @@ dist-ssr
 
 # Lovable metadata
 .lovable
+
+# Vite temp files
+vite.config.ts.timestamp*
