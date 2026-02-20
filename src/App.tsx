@@ -21,6 +21,7 @@ import MindfulMoments from "./pages/MindfulMoments";
 import SafeSpace from "./pages/SafeSpace";
 import Chat from "./pages/Chat";
 import FoodLog from "./pages/FoodLog";
+import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -93,6 +94,7 @@ const AppRoutes = () => {
         <Route path="/safe-space" element={<ProtectedRoute><SafeSpace /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/food-log" element={<ProtectedRoute><FoodLog /></ProtectedRoute>} />
+        <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
