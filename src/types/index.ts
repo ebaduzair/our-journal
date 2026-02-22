@@ -156,3 +156,13 @@ export interface SafeSpaceEntry {
   isResolved: boolean;
   createdAt: Date;
 }
+
+export interface EmergencyProtocol {
+  id: string;
+  author: 'me' | 'partner';
+  emotion: string;
+  triggerDescription?: string;
+  whatINeed: string;
+  whatNotToDo?: string;
+  createdAt: Date;
+}

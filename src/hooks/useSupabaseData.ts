@@ -140,7 +140,7 @@ export function useSupabaseData<T extends { id: string }>(
             }
 
             // Add author_id ONLY for tables that actually have this column
-            const tablesWithAuthorId = ['love_notes', 'love_reasons', 'reasons', 'food_logs', 'water_intake', 'safe_space_entries', 'check_in_entries', 'gratitude_entries', 'worry_entries', 'reassurance_cards', 'reality_check_answers', 'expenses'];
+            const tablesWithAuthorId = ['love_notes', 'love_reasons', 'reasons', 'food_logs', 'water_intake', 'safe_space_entries', 'check_in_entries', 'gratitude_entries', 'worry_entries', 'reassurance_cards', 'reality_check_answers', 'expenses', 'emergency_protocols'];
 
             if (user?.id && tablesWithAuthorId.includes(table)) {
                 insertData.author_id = user.id;

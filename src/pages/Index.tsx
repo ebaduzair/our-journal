@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Heart, Calendar, Gift, Sparkles, BarChart3, ClipboardCheck, Brain, Trophy, Settings, Utensils, MessageCircleHeart, HeartHandshake, Wallet } from 'lucide-react';
+import { Heart, Calendar, Gift, Sparkles, BarChart3, ClipboardCheck, Brain, Trophy, Settings, Utensils, MessageCircleHeart, HeartHandshake, Wallet, Stethoscope } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FloatingHearts } from '@/components/HeartAnimation';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
@@ -194,14 +194,14 @@ const Index = () => {
               </div>
             </Link>
 
-            <Link to="/stats">
+            <Link to="/emergency">
               <div className="p-4 rounded-2xl bg-card shadow-sm border border-border/50 flex items-center gap-3 hover:bg-muted/50 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <Stethoscope className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm">Stats</h4>
-                  <p className="text-[10px] text-muted-foreground">Insights</p>
+                  <h4 className="font-medium text-sm">Emergency</h4>
+                  <p className="text-[10px] text-muted-foreground">What I need</p>
                 </div>
               </div>
             </Link>

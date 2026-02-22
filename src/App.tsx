@@ -16,7 +16,7 @@ import ReasonsILoveYou from "./pages/ReasonsILoveYou";
 import Challenges from "./pages/Challenges";
 import CheckIns from "./pages/CheckIns";
 import LoveLanguageQuiz from "./pages/LoveLanguageQuiz";
-import Stats from "./pages/Stats";
+import Emergency from "./pages/Emergency";
 import MindfulMoments from "./pages/MindfulMoments";
 import SafeSpace from "./pages/SafeSpace";
 import Chat from "./pages/Chat";
@@ -89,7 +89,7 @@ const AppRoutes = () => {
         <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
         <Route path="/check-ins" element={<ProtectedRoute><CheckIns /></ProtectedRoute>} />
         <Route path="/love-quiz" element={<ProtectedRoute><LoveLanguageQuiz /></ProtectedRoute>} />
-        <Route path="/stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
+        <Route path="/emergency" element={<ProtectedRoute><Emergency /></ProtectedRoute>} />
         <Route path="/mindful" element={<ProtectedRoute><MindfulMoments /></ProtectedRoute>} />
         <Route path="/safe-space" element={<ProtectedRoute><SafeSpace /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
