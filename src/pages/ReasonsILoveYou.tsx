@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Plus, Sparkles, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
@@ -36,6 +36,15 @@ const ReasonsILoveYou = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newReason, setNewReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Rotate reminder slowly (every 10 seconds)
+  const [reminderIndex, setReminderIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setReminderIndex(prev => prev + 1);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleAddReason = async () => {
     if (!newReason.trim()) return;
@@ -106,7 +115,7 @@ const ReasonsILoveYou = () => {
                   </span>
                 </div>
                 <p className="font-romantic text-lg leading-relaxed">
-                  "{reasons[Math.floor(Math.random() * reasons.length)].content}"
+                  "{reasons[reminderIndex % reasons.length].content}"
                 </p>
               </motion.div>
             )}

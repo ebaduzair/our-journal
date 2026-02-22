@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Heart, BookOpen, MessageCircle, Wind,
@@ -108,6 +108,15 @@ const MindfulMoments = () => {
   const [currentAffirmation, setCurrentAffirmation] = useState(
     coupleAffirmations[Math.floor(Math.random() * coupleAffirmations.length)]
   );
+
+  // Rotate reassurances slowly (every 10 seconds)
+  const [reassuranceIndex, setReassuranceIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setReassuranceIndex(prev => prev + 1);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   const shuffleReframePrompt = () => {
     const newPrompt = reframePrompts[Math.floor(Math.random() * reframePrompts.length)];
@@ -219,7 +228,7 @@ const MindfulMoments = () => {
       createdAt: new Date()
     }));
 
-  const randomReassurance = allReassurances[Math.floor(Math.random() * allReassurances.length)];
+  const randomReassurance = allReassurances[reassuranceIndex % allReassurances.length];
 
   if (loading) {
     return (

@@ -240,7 +240,7 @@ const Index = () => {
               <div className="p-5 rounded-2xl bg-card border-l-4 border-l-rose-400 shadow-sm">
                 <div className="flex items-center gap-2 mb-2 text-rose-500">
                   <Heart className="w-4 h-4 fill-current" />
-                  <span className="text-xs font-bold uppercase tracking-wide">Remember this?</span>
+                  <span className="text-xs font-bold uppercase tracking-wide">Remember this!</span>
                 </div>
                 <p className="text-foreground italic">"{randomReason.content}"</p>
               </div>
@@ -263,8 +263,8 @@ const Index = () => {
         <motion.div variants={item} className="grid grid-cols-1 gap-3">
           {needsCheckIn && (
             <Link to="/check-ins">
-              <div className="p-4 rounded-2xl bg-violet-50 border border-violet-100 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-violet-600">
+              <div className="p-4 rounded-2xl bg-card shadow-sm border border-border/50 flex items-center gap-4 hover:bg-muted/50 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">
                   <ClipboardCheck className="w-6 h-6" />
                 </div>
                 <div>
@@ -276,8 +276,8 @@ const Index = () => {
           )}
 
           <Link to="/mindful">
-            <div className="p-4 rounded-2xl bg-teal-50 border border-teal-100 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600">
+            <div className="p-4 rounded-2xl bg-card shadow-sm border border-border/50 flex items-center gap-4 hover:bg-muted/50 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">
                 <Brain className="w-6 h-6" />
               </div>
               <div>
