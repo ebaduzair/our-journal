@@ -28,6 +28,8 @@ import NotFound from "./pages/NotFound";
 import { Heart } from "lucide-react";
 import { motion } from "framer-motion";
 
+import { useState as useStateReact, useEffect as useEffectReact } from "react";
+
 const queryClient = new QueryClient();
 
 // Protected route wrapper
@@ -61,8 +63,22 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const [timedOut, setTimedOut] = useStateReact(false);
 
-  if (loading) {
+  // Safety timeout: if loading takes more than 20 seconds, force render
+  useEffectReact(() => {
+    if (!loading) {
+      setTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      console.error('[App] Loading timed out after 20s — forcing render');
+      setTimedOut(true);
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  if (loading && !timedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
         <motion.div

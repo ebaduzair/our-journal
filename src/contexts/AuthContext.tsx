@@ -117,11 +117,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                console.log('[Auth] State change event:', event);
+
+                // Skip INITIAL_SESSION — already handled by initAuth above
+                if (event === 'INITIAL_SESSION') return;
+
                 if (mounted) {
                     setSession(session);
                     setUser(session?.user ?? null);
 
                     if (session?.user) {
+                        setLoading(true);
                         await fetchProfile(session.user.id, session.access_token);
                     } else {
                         setProfile(null);
@@ -169,14 +175,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signIn = async (email: string, password: string) => {
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            console.log('[Auth] Signing in...');
+
+            // Add a 15-second timeout to prevent infinite hang on mobile
+            const signInPromise = supabase.auth.signInWithPassword({
                 email,
                 password,
             });
+            const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Sign in timed out. Please check your internet connection and try again.')), 15000)
+            );
 
-            if (error) throw error;
+            const { error } = await Promise.race([signInPromise, timeoutPromise]) as Awaited<typeof signInPromise>;
+
+            if (error) {
+                console.error('[Auth] Sign in error:', error.message);
+                throw error;
+            }
+            console.log('[Auth] Sign in successful');
             return { error: null };
         } catch (error) {
+            console.error('[Auth] Sign in failed:', (error as Error).message);
             return { error: error as Error };
         }
     };
