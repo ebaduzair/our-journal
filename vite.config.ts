@@ -19,6 +19,39 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      workbox: {
+        // Force new SW to activate immediately, don't wait for old tabs to close
+        skipWaiting: true,
+        clientsClaim: true,
+        // Remove old caches from previous builds
+        cleanupOutdatedCaches: true,
+        // Don't precache the index.html — let it always fetch from network
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/rest\//, /^\/auth\//],
+        runtimeCaching: [
+          {
+            // Navigation requests: always try network first, fall back to cache
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 5,
+            },
+          },
+          {
+            // JS/CSS assets: use StaleWhileRevalidate so old cache works but updates in background
+            urlPattern: /\.(?:js|css)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'assets-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24, // 1 day
+              },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Our Love Journal',
         short_name: 'Journal',

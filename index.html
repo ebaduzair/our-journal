@@ -1,21 +1,51 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Journal</title>
-    <meta name="description" content="Our Love Journal" />
-    <meta name="theme-color" content="#fae2e5" />
-    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
 
-    <meta property="og:title" content="Our Love Journal" />
-    <meta property="og:description" content="A private space for us." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/pwa-512x512.png" />
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Journal</title>
+  <meta name="description" content="Our Love Journal" />
+  <meta name="theme-color" content="#fae2e5" />
+  <link rel="apple-touch-icon" href="/pwa-192x192.png" />
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <meta property="og:title" content="Our Love Journal" />
+  <meta property="og:description" content="A private space for us." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/pwa-512x512.png" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+  <script>
+    // Escape hatch: if the app is stuck loading for 12+ seconds,
+    // unregister stale service workers and force-reload.
+    // This runs independently of React so it works even when bundles fail.
+    (function () {
+      var swCleared = sessionStorage.getItem('sw-cleared');
+      if (swCleared) return; // Don't loop — only try once per session
+      setTimeout(function () {
+        var root = document.getElementById('root');
+        // Check if root is empty or only has a loading spinner (no real content)
+        if (root && root.children.length <= 1) {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              if (regs.length > 0) {
+                sessionStorage.setItem('sw-cleared', '1');
+                regs.forEach(function (r) { r.unregister(); });
+                caches.keys().then(function (names) {
+                  names.forEach(function (n) { caches.delete(n); });
+                }).then(function () {
+                  location.reload();
+                });
+              }
+            });
+          }
+        }
+      }, 12000);
+    })();
+  </script>
+</body>
+
 </html>

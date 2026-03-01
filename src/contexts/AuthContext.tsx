@@ -87,9 +87,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const initAuth = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                // Add a 15-second timeout to prevent infinite loading on mobile
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Auth session timeout')), 15000)
+                );
+
+                const { data: { session }, error } = await Promise.race([
+                    sessionPromise,
+                    timeoutPromise,
+                ]) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
 
                 if (error) {
+                    console.error('[Auth] getSession error:', error.message);
                     if (mounted) setLoading(false);
                     return;
                 }
@@ -105,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 }
             } catch (error) {
+                console.error('[Auth] Init error:', (error as Error).message);
                 if (mounted) setLoading(false);
             }
         };
