@@ -39,39 +39,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchProfile = async (userId: string, accessToken?: string) => {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        const token = accessToken || supabaseKey;
-
+    const fetchProfile = async (userId: string, _accessToken?: string) => {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            // Use Supabase client instead of raw fetch — more reliable on mobile
+            const fetchPromise = supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
 
-            const response = await fetch(
-                `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}&select=*`,
-                {
-                    headers: {
-                        'apikey': supabaseKey,
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    signal: controller.signal,
-                }
+            // Add a 10-second timeout for safety
+            const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
             );
 
-            clearTimeout(timeoutId);
+            const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as Awaited<typeof fetchPromise>;
 
-            if (!response.ok) {
-                console.error('[Profile] Fetch failed:', response.status);
+            if (error) {
+                console.error('[Profile] Fetch error:', error.message);
                 setLoading(false);
                 return;
             }
 
-            const data = await response.json();
-
-            if (Array.isArray(data) && data.length > 0) {
-                console.log('[Profile] Loaded with couple_code:', data[0].couple_code ? 'YES' : 'NO');
-                setProfile(data[0]);
+            if (data) {
+                console.log('[Profile] Loaded with couple_code:', data.couple_code ? 'YES' : 'NO');
+                setProfile(data as unknown as Profile);
             } else {
                 console.log('[Profile] No profile found in DB');
             }
