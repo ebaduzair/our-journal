@@ -166,3 +166,21 @@ export interface EmergencyProtocol {
   whatNotToDo?: string;
   createdAt: Date;
 }
+
+// Habit Tracker
+export interface Habit {
+  id: string;
+  name: string;
+  emoji: string;
+  frequency: 'daily' | 'weekly';
+  created_by: string;
+  created_at: string;
+}
+
+export interface HabitCompletion {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_date: string; // YYYY-MM-DD
+  created_at: string;
+}

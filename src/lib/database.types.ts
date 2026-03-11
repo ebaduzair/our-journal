@@ -420,6 +420,63 @@ export interface Database {
                 }
                 Relationships: []
             }
+            habits: {
+                Row: {
+                    id: string
+                    name: string
+                    emoji: string
+                    frequency: string
+                    created_by: string
+                    couple_code: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    name: string
+                    emoji: string
+                    frequency?: string
+                    created_by: string
+                    couple_code: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    name?: string
+                    emoji?: string
+                    frequency?: string
+                    created_by?: string
+                    couple_code?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
+            habit_completions: {
+                Row: {
+                    id: string
+                    habit_id: string
+                    user_id: string
+                    completed_date: string
+                    couple_code: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    habit_id: string
+                    user_id: string
+                    completed_date: string
+                    couple_code: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    habit_id?: string
+                    user_id?: string
+                    completed_date?: string
+                    couple_code?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never
