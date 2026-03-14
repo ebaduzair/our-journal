@@ -184,3 +184,29 @@ export interface HabitCompletion {
   completed_date: string; // YYYY-MM-DD
   created_at: string;
 }
+
+// Book / Podcast Club
+export interface SharedMedia {
+  id: string;
+  title: string;
+  author_or_host: string;
+  cover_emoji: string;
+  type: 'book' | 'podcast';
+  status: 'reading' | 'finished' | 'paused';
+  current_chapter: string;
+  total_chapters: string;
+  couple_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface MediaNote {
+  id: string;
+  media_id: string;
+  chapter: string;
+  content: string;
+  is_key_takeaway: boolean;
+  author_id: string; // auth.users.id
+  couple_code: string;
+  created_at: string;
+}

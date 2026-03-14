@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Heart, Calendar, Gift, Sparkles, BarChart3, ClipboardCheck, Brain, Trophy, Settings, Utensils, MessageCircleHeart, HeartHandshake, Wallet, Stethoscope, Target } from 'lucide-react';
+import { Heart, Calendar, Gift, Sparkles, BarChart3, ClipboardCheck, Brain, Trophy, Settings, Utensils, MessageCircleHeart, HeartHandshake, Wallet, Stethoscope, Target, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FloatingHearts } from '@/components/HeartAnimation';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
@@ -214,6 +214,18 @@ const Index = () => {
                 <div>
                   <h4 className="font-medium text-sm">Habits</h4>
                   <p className="text-[10px] text-muted-foreground">Build together</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link to="/book-club">
+              <div className="p-4 rounded-2xl bg-card shadow-sm border border-border/50 flex items-center gap-3 hover:bg-muted/50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm">Book Club</h4>
+                  <p className="text-[10px] text-muted-foreground">Learn together</p>
                 </div>
               </div>
             </Link>

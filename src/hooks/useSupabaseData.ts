@@ -25,6 +25,9 @@ export function useSupabaseData<T extends { id: string }>(
     // Use session token for authenticated operations, fallback to anon key
     const accessToken = session?.access_token || supabaseKey;
 
+    const orderByColumn = orderBy?.column;
+    const orderByAscending = orderBy?.ascending;
+
     // Fetch data using direct fetch (more reliable than supabase client)
     const fetchData = useCallback(async () => {
         if (!coupleCode) {
@@ -35,9 +38,9 @@ export function useSupabaseData<T extends { id: string }>(
         try {
             let url = `${supabaseUrl}/rest/v1/${table}?couple_code=eq.${coupleCode}`;
 
-            if (orderBy) {
-                const direction = orderBy.ascending ? 'asc' : 'desc';
-                url += `&order=${orderBy.column}.${direction}`;
+            if (orderByColumn) {
+                const direction = orderByAscending ? 'asc' : 'desc';
+                url += `&order=${orderByColumn}.${direction}`;
             }
 
             const response = await fetch(url, {
@@ -66,7 +69,7 @@ export function useSupabaseData<T extends { id: string }>(
         } finally {
             setLoading(false);
         }
-    }, [coupleCode, table, orderBy, transform, supabaseUrl, supabaseKey, accessToken]);
+    }, [coupleCode, table, orderByColumn, orderByAscending, transform, supabaseUrl, supabaseKey, accessToken]);
 
     // Subscribe to real-time changes
     useEffect(() => {
@@ -95,7 +98,7 @@ export function useSupabaseData<T extends { id: string }>(
                                 return prev;
                             }
                             // Add to beginning or end based on order
-                            return orderBy?.ascending === false
+                            return orderByAscending === false
                                 ? [newItem, ...prev]
                                 : [...prev, newItem];
                         });
@@ -120,7 +123,7 @@ export function useSupabaseData<T extends { id: string }>(
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [coupleCode, table, fetchData, transform, orderBy]);
+    }, [coupleCode, table, fetchData, transform, orderByColumn, orderByAscending]);
 
     // Add item using direct fetch
     const addItem = async (item: Omit<T, 'id'>) => {

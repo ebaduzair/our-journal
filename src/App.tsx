@@ -32,6 +32,7 @@ const Expenses = lazy(() => import("./pages/Expenses"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const HabitTracker = lazy(() => import("./pages/HabitTracker"));
+const BookClub = lazy(() => import("./pages/BookClub"));
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ const AppRoutes = () => {
           <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/habits" element={<ProtectedRoute><HabitTracker /></ProtectedRoute>} />
+          <Route path="/book-club" element={<ProtectedRoute><BookClub /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

@@ -477,6 +477,81 @@ export interface Database {
                 }
                 Relationships: []
             }
+            shared_media: {
+                Row: {
+                    id: string
+                    title: string
+                    author_or_host: string
+                    cover_emoji: string
+                    type: 'book' | 'podcast'
+                    status: 'reading' | 'finished' | 'paused'
+                    current_chapter: string
+                    total_chapters: string
+                    couple_code: string
+                    created_by: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    title: string
+                    author_or_host: string
+                    cover_emoji?: string
+                    type: 'book' | 'podcast'
+                    status?: 'reading' | 'finished' | 'paused'
+                    current_chapter?: string
+                    total_chapters?: string
+                    couple_code: string
+                    created_by: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    title?: string
+                    author_or_host?: string
+                    cover_emoji?: string
+                    type?: 'book' | 'podcast'
+                    status?: 'reading' | 'finished' | 'paused'
+                    current_chapter?: string
+                    total_chapters?: string
+                    couple_code?: string
+                    created_by?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
+            media_notes: {
+                Row: {
+                    id: string
+                    media_id: string
+                    chapter: string
+                    content: string
+                    is_key_takeaway: boolean
+                    author_id: string
+                    couple_code: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    media_id: string
+                    chapter?: string
+                    content: string
+                    is_key_takeaway?: boolean
+                    author_id: string
+                    couple_code: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    media_id?: string
+                    chapter?: string
+                    content?: string
+                    is_key_takeaway?: boolean
+                    author_id?: string
+                    couple_code?: string
+                    created_at?: string
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never
